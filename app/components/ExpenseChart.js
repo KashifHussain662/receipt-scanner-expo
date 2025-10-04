@@ -3,14 +3,20 @@ import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const { width } = Dimensions.get("window");
 
-export default function ExpenseChart({ receipts, type = "pie" }) {
-  const categoryData = calculateCategoryData(receipts);
+export default function ExpenseChart({
+  receipts,
+  type = "pie",
+  selectedMonth,
+}) {
+  const categoryData = calculateCategoryData(receipts, selectedMonth);
   const monthlyData = calculateMonthlyData(receipts);
 
   if (receipts.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Spending by Category</Text>
+        <Text style={styles.title}>
+          {type === "pie" ? "Spending by Category" : "Monthly Spending Trend"}
+        </Text>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No receipt data available</Text>
           <Text style={styles.emptySubtext}>
@@ -22,11 +28,29 @@ export default function ExpenseChart({ receipts, type = "pie" }) {
   }
 
   if (type === "pie") {
+    const filteredData = categoryData.filter((item) => item.y > 0);
+
+    if (filteredData.length === 0) {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.title}>Spending by Category</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              No expenses for selected period
+            </Text>
+            <Text style={styles.emptySubtext}>
+              Try selecting a different month
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Spending by Category</Text>
         <ScrollView style={styles.categoryList}>
-          {categoryData.map((item, index) => (
+          {filteredData.map((item, index) => (
             <View key={index} style={styles.categoryItem}>
               <View style={styles.categoryHeader}>
                 <View
@@ -45,7 +69,7 @@ export default function ExpenseChart({ receipts, type = "pie" }) {
                     {
                       width: `${
                         (item.y /
-                          categoryData.reduce((sum, cat) => sum + cat.y, 0)) *
+                          filteredData.reduce((sum, cat) => sum + cat.y, 0)) *
                         100
                       }%`,
                       backgroundColor: getCategoryColor(item.x),
@@ -53,6 +77,13 @@ export default function ExpenseChart({ receipts, type = "pie" }) {
                   ]}
                 />
               </View>
+              <Text style={styles.percentage}>
+                {(
+                  (item.y / filteredData.reduce((sum, cat) => sum + cat.y, 0)) *
+                  100
+                ).toFixed(1)}
+                %
+              </Text>
             </View>
           ))}
         </ScrollView>
@@ -60,39 +91,44 @@ export default function ExpenseChart({ receipts, type = "pie" }) {
     );
   }
 
+  // Bar chart view - Monthly trends
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Monthly Spending</Text>
-      <ScrollView style={styles.monthlyList}>
+      <Text style={styles.title}>6-Month Spending Trend</Text>
+      <View style={styles.trendsList}>
         {monthlyData.map((item, index) => (
-          <View key={index} style={styles.monthlyItem}>
-            <Text style={styles.monthName}>{item.month}</Text>
-            <View style={styles.amountBar}>
+          <View key={index} style={styles.trendItem}>
+            <Text style={styles.trendMonth}>{item.month}</Text>
+            <View style={styles.trendBarContainer}>
               <View
                 style={[
-                  styles.amountFill,
+                  styles.trendBar,
                   {
                     width: `${
                       (item.amount /
-                        Math.max(...monthlyData.map((m) => m.amount))) *
-                      80
+                        Math.max(...monthlyData.map((t) => t.amount)) || 1) * 80
                     }%`,
+                    opacity: item.amount > 0 ? 1 : 0.3,
                   },
                 ]}
               />
-              <Text style={styles.monthAmount}>${item.amount.toFixed(2)}</Text>
             </View>
+            <Text style={styles.trendAmount}>${item.amount.toFixed(2)}</Text>
           </View>
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
-const calculateCategoryData = (receipts) => {
+const calculateCategoryData = (receipts, selectedMonth) => {
   const categoryTotals = {};
 
-  receipts.forEach((receipt) => {
+  const filteredReceipts = selectedMonth
+    ? receipts.filter((receipt) => receipt.date.startsWith(selectedMonth))
+    : receipts;
+
+  filteredReceipts.forEach((receipt) => {
     const category = receipt.category || "Other";
     const amount = parseFloat(receipt.total_amount) || 0;
 
@@ -123,13 +159,26 @@ const calculateMonthlyData = (receipts) => {
     monthlyTotals[monthYear] += amount;
   });
 
-  return Object.entries(monthlyTotals)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-6)
-    .map(([month, amount]) => ({
-      month: month.slice(5),
-      amount,
-    }));
+  // Get last 6 months
+  const months = [];
+  const currentDate = new Date();
+
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() - i,
+      1
+    );
+    const monthString = date.toISOString().slice(0, 7);
+    const monthName = date.toLocaleDateString("en-US", { month: "short" });
+    months.push({
+      value: monthString,
+      label: monthName,
+      amount: monthlyTotals[monthString] || 0,
+    });
+  }
+
+  return months;
 };
 
 const getCategoryColor = (category) => {
@@ -148,9 +197,10 @@ const getCategoryColor = (category) => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    margin: 16,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -164,11 +214,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 16,
-    textAlign: "center",
     color: "#333",
   },
   emptyContainer: {
-    height: 200,
+    height: 120,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -219,35 +268,42 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
   },
-  monthlyList: {
-    maxHeight: 300,
+  percentage: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
+    textAlign: "right",
   },
-  monthlyItem: {
+  trendsList: {
+    gap: 12,
+  },
+  trendItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    gap: 12,
   },
-  monthName: {
+  trendMonth: {
     width: 40,
     fontSize: 12,
     color: "#666",
     fontWeight: "500",
   },
-  amountBar: {
+  trendBarContainer: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  amountFill: {
     height: 20,
-    backgroundColor: "#007AFF",
+    backgroundColor: "#f0f0f0",
     borderRadius: 4,
-    marginRight: 8,
   },
-  monthAmount: {
+  trendBar: {
+    height: "100%",
+    backgroundColor: "#997bff",
+    borderRadius: 4,
+  },
+  trendAmount: {
+    width: 60,
     fontSize: 12,
     color: "#333",
     fontWeight: "500",
-    minWidth: 60,
+    textAlign: "right",
   },
 });
