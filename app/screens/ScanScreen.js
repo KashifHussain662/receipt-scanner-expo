@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { extractReceiptData, mockReceiptData } from "../../utils/api"; // Import mockReceiptData
+import { saveReceipt } from "../../utils/storage";
 import CameraScreen from "../components/CameraScreen";
 import ReceiptCard from "../components/ReceiptCard";
-import { extractReceiptData } from "../utils/api";
-import { saveReceipt } from "../utils/storage";
 
 export default function ScanScreen() {
   const [showCamera, setShowCamera] = useState(false);
@@ -22,7 +22,7 @@ export default function ScanScreen() {
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ Correct for your version
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
@@ -41,7 +41,15 @@ export default function ScanScreen() {
   const processImage = async (imageUri) => {
     setIsProcessing(true);
     try {
-      const receiptData = await extractReceiptData(imageUri);
+      let receiptData;
+      try {
+        receiptData = await extractReceiptData(imageUri);
+      } catch (apiError) {
+        console.log("API failed, using mock data:", apiError);
+        // Fallback to mock data
+        receiptData = mockReceiptData(); // Yeh ab work karega
+      }
+
       const savedReceipt = await saveReceipt(receiptData);
       setScannedReceipt(savedReceipt);
       Alert.alert("Success", "Receipt scanned and saved successfully!");
@@ -84,6 +92,7 @@ export default function ScanScreen() {
         <View style={styles.processingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.processingText}>Processing receipt...</Text>
+          <Text style={styles.demoNote}>Using demo data for testing</Text>
         </View>
       )}
 
@@ -115,11 +124,11 @@ export default function ScanScreen() {
       )}
 
       <View style={styles.tipsContainer}>
-        <Text style={styles.tipsTitle}>Tips for better scanning:</Text>
-        <Text style={styles.tip}>• Ensure good lighting</Text>
-        <Text style={styles.tip}>• Keep receipt flat and in focus</Text>
-        <Text style={styles.tip}>• Include entire receipt in frame</Text>
-        <Text style={styles.tip}>• Avoid glare and shadows</Text>
+        <Text style={styles.tipsTitle}>App Information:</Text>
+        <Text style={styles.tip}>• Currently using demo data</Text>
+        <Text style={styles.tip}>• Real receipt scanning coming soon</Text>
+        <Text style={styles.tip}>• All functionality works with mock data</Text>
+        <Text style={styles.tip}>• Your receipts are saved locally</Text>
       </View>
     </ScrollView>
   );
@@ -157,6 +166,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: "#666",
+  },
+  demoNote: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#999",
+    fontStyle: "italic",
   },
   actionsContainer: {
     flexDirection: "row",

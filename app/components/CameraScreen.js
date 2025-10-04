@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -58,45 +58,46 @@ export default function CameraScreen({ onPhotoTaken, onClose }) {
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-        <View style={styles.overlay}>
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>×</Text>
-            </TouchableOpacity>
-          </View>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
 
-          <View style={styles.captureArea}>
-            <View style={styles.captureFrame} />
-          </View>
-
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[
-                styles.captureButton,
-                isProcessing && styles.captureButtonDisabled,
-              ]}
-              onPress={takePicture}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <View style={styles.captureButtonInner} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.flipButton}
-              onPress={() =>
-                setFacing((current) => (current === "back" ? "front" : "back"))
-              }
-            >
-              <Text style={styles.flipButtonText}>Flip</Text>
-            </TouchableOpacity>
-          </View>
+      {/* Overlay with absolute positioning */}
+      <View style={styles.overlay}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>×</Text>
+          </TouchableOpacity>
         </View>
-      </CameraView>
+
+        <View style={styles.captureArea}>
+          <View style={styles.captureFrame} />
+        </View>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[
+              styles.captureButton,
+              isProcessing && styles.captureButtonDisabled,
+            ]}
+            onPress={takePicture}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={styles.captureButtonInner} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.flipButton}
+            onPress={() =>
+              setFacing((current) => (current === "back" ? "front" : "back"))
+            }
+          >
+            <Text style={styles.flipButtonText}>Flip</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -104,12 +105,17 @@ export default function CameraScreen({ onPhotoTaken, onClose }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: "relative",
   },
   camera: {
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "transparent",
   },
   header: {

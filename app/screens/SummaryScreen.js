@@ -9,8 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { getReceipts } from "../../utils/storage";
 import ExpenseChart from "../components/ExpenseChart";
-import { getReceipts } from "../utils/storage";
 
 const { width } = Dimensions.get("window");
 

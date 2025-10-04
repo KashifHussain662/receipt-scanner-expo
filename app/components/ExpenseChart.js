@@ -1,11 +1,5 @@
-import { Dimensions, StyleSheet, Text, View } from "react-native";
-import {
-  VictoryAxis,
-  VictoryBar,
-  VictoryChart,
-  VictoryPie,
-  VictoryTheme,
-} from "victory-native";
+import React from "react";
+import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const { width } = Dimensions.get("window");
 
@@ -13,33 +7,55 @@ export default function ExpenseChart({ receipts, type = "pie" }) {
   const categoryData = calculateCategoryData(receipts);
   const monthlyData = calculateMonthlyData(receipts);
 
+  if (receipts.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Spending by Category</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No receipt data available</Text>
+          <Text style={styles.emptySubtext}>
+            Scan some receipts to see charts
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   if (type === "pie") {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Spending by Category</Text>
-        <VictoryPie
-          data={categoryData}
-          width={width - 32}
-          height={300}
-          colorScale={[
-            "#FF6B6B",
-            "#4ECDC4",
-            "#45B7D1",
-            "#96CEB4",
-            "#FFEAA7",
-            "#DDA0DD",
-            "#B2B2B2",
-          ]}
-          innerRadius={70}
-          padAngle={2}
-          style={{
-            labels: {
-              fill: "white",
-              fontSize: 12,
-              fontWeight: "bold",
-            },
-          }}
-        />
+        <ScrollView style={styles.categoryList}>
+          {categoryData.map((item, index) => (
+            <View key={index} style={styles.categoryItem}>
+              <View style={styles.categoryHeader}>
+                <View
+                  style={[
+                    styles.categoryColor,
+                    { backgroundColor: getCategoryColor(item.x) },
+                  ]}
+                />
+                <Text style={styles.categoryName}>{item.x}</Text>
+                <Text style={styles.categoryAmount}>${item.y.toFixed(2)}</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${
+                        (item.y /
+                          categoryData.reduce((sum, cat) => sum + cat.y, 0)) *
+                        100
+                      }%`,
+                      backgroundColor: getCategoryColor(item.x),
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   }
@@ -47,28 +63,28 @@ export default function ExpenseChart({ receipts, type = "pie" }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Monthly Spending</Text>
-      <VictoryChart
-        theme={VictoryTheme.material}
-        domainPadding={20}
-        width={width - 32}
-        height={300}
-      >
-        <VictoryAxis
-          tickFormat={monthlyData.map((d) => d.month)}
-          style={{
-            tickLabels: { fontSize: 10, angle: -45 },
-          }}
-        />
-        <VictoryAxis dependentAxis tickFormat={(x) => `$${x}`} />
-        <VictoryBar
-          data={monthlyData}
-          x="month"
-          y="amount"
-          style={{
-            data: { fill: "#007AFF" },
-          }}
-        />
-      </VictoryChart>
+      <ScrollView style={styles.monthlyList}>
+        {monthlyData.map((item, index) => (
+          <View key={index} style={styles.monthlyItem}>
+            <Text style={styles.monthName}>{item.month}</Text>
+            <View style={styles.amountBar}>
+              <View
+                style={[
+                  styles.amountFill,
+                  {
+                    width: `${
+                      (item.amount /
+                        Math.max(...monthlyData.map((m) => m.amount))) *
+                      80
+                    }%`,
+                  },
+                ]}
+              />
+              <Text style={styles.monthAmount}>${item.amount.toFixed(2)}</Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -86,11 +102,9 @@ const calculateCategoryData = (receipts) => {
     categoryTotals[category] += amount;
   });
 
-  return Object.entries(categoryTotals).map(([category, amount]) => ({
-    x: category,
-    y: amount,
-    label: `${category}\n$${amount.toFixed(2)}`,
-  }));
+  return Object.entries(categoryTotals)
+    .map(([category, amount]) => ({ x: category, y: amount }))
+    .sort((a, b) => b.y - a.y);
 };
 
 const calculateMonthlyData = (receipts) => {
@@ -118,6 +132,19 @@ const calculateMonthlyData = (receipts) => {
     }));
 };
 
+const getCategoryColor = (category) => {
+  const colors = {
+    "Food & Drinks": "#FF6B6B",
+    Shopping: "#4ECDC4",
+    Transportation: "#45B7D1",
+    Entertainment: "#96CEB4",
+    Healthcare: "#FFEAA7",
+    Utilities: "#DDA0DD",
+    Other: "#B2B2B2",
+  };
+  return colors[category] || "#B2B2B2";
+};
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "white",
@@ -139,5 +166,88 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: "center",
     color: "#333",
+  },
+  emptyContainer: {
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+  },
+  categoryList: {
+    maxHeight: 300,
+  },
+  categoryItem: {
+    marginBottom: 16,
+  },
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  categoryColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  categoryName: {
+    flex: 1,
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "500",
+  },
+  categoryAmount: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 3,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  monthlyList: {
+    maxHeight: 300,
+  },
+  monthlyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  monthName: {
+    width: 40,
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  amountBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  amountFill: {
+    height: 20,
+    backgroundColor: "#007AFF",
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  monthAmount: {
+    fontSize: 12,
+    color: "#333",
+    fontWeight: "500",
+    minWidth: 60,
   },
 });

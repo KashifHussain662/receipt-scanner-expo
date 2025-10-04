@@ -10,8 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { deleteReceipt, getReceipts } from "../../utils/storage";
 import ReceiptCard from "../components/ReceiptCard";
-import { deleteReceipt, getReceipts } from "../utils/storage";
 
 export default function ReceiptsScreen() {
   const [receipts, setReceipts] = useState([]);
