@@ -20,7 +20,6 @@ export default function SummaryScreen() {
   const [chartType, setChartType] = useState("pie");
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState("monthly"); // 'monthly', 'quarterly', 'yearly'
 
   useFocusEffect(
     React.useCallback(() => {
@@ -48,8 +47,8 @@ export default function SummaryScreen() {
 
   // Calculate monthly total
   const calculateMonthlyTotal = () => {
-    const monthlyReceipts = receipts.filter((receipt) =>
-      receipt.date.startsWith(selectedMonth)
+    const monthlyReceipts = receipts.filter(
+      (receipt) => receipt.date && receipt.date.startsWith(selectedMonth)
     );
     return monthlyReceipts.reduce(
       (sum, receipt) => sum + parseFloat(receipt.total_amount || 0),
@@ -60,8 +59,8 @@ export default function SummaryScreen() {
   // Calculate previous month total for comparison
   const calculatePreviousMonthTotal = () => {
     const prevMonth = getPreviousMonth(selectedMonth);
-    const prevMonthReceipts = receipts.filter((receipt) =>
-      receipt.date.startsWith(prevMonth)
+    const prevMonthReceipts = receipts.filter(
+      (receipt) => receipt.date && receipt.date.startsWith(prevMonth)
     );
     return prevMonthReceipts.reduce(
       (sum, receipt) => sum + parseFloat(receipt.total_amount || 0),
@@ -85,8 +84,8 @@ export default function SummaryScreen() {
 
   // Calculate category breakdown
   const calculateCategoryBreakdown = () => {
-    const monthlyReceipts = receipts.filter((receipt) =>
-      receipt.date.startsWith(selectedMonth)
+    const monthlyReceipts = receipts.filter(
+      (receipt) => receipt.date && receipt.date.startsWith(selectedMonth)
     );
 
     const breakdown = {};
@@ -105,14 +104,14 @@ export default function SummaryScreen() {
       .sort((a, b) => b.amount - a.amount);
   };
 
-  // Calculate monthly trends (last 6 months)
+  // Calculate monthly trends (last 6 months) - FIXED
   const calculateMonthlyTrends = () => {
     const months = getLastMonths(6);
     const trends = [];
 
     months.forEach((month) => {
-      const monthReceipts = receipts.filter((receipt) =>
-        receipt.date.startsWith(month.value)
+      const monthReceipts = receipts.filter(
+        (receipt) => receipt.date && receipt.date.startsWith(month.value)
       );
       const total = monthReceipts.reduce(
         (sum, receipt) => sum + parseFloat(receipt.total_amount || 0),
@@ -127,15 +126,15 @@ export default function SummaryScreen() {
       });
     });
 
-    return trends;
+    return trends.reverse(); // Show oldest to newest
   };
 
-  // Get last N months
+  // Get last N months - FIXED
   const getLastMonths = (count) => {
     const months = [];
     const currentDate = new Date();
 
-    for (let i = count - 1; i >= 0; i--) {
+    for (let i = 0; i < count; i++) {
       const date = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth() - i,
@@ -181,14 +180,20 @@ export default function SummaryScreen() {
   const categoryBreakdown = calculateCategoryBreakdown();
   const monthlyTrends = calculateMonthlyTrends();
   const availableMonths = getAvailableMonths();
-  const currentMonthReceipts = receipts.filter((r) =>
-    r.date.startsWith(selectedMonth)
+  const currentMonthReceipts = receipts.filter(
+    (r) => r.date && r.date.startsWith(selectedMonth)
   );
 
   // Calculate percentage change from previous month
   const getPercentageChange = () => {
-    if (previousMonthTotal === 0) return 0;
+    if (previousMonthTotal === 0) return monthlyTotal > 0 ? 100 : 0;
     return ((monthlyTotal - previousMonthTotal) / previousMonthTotal) * 100;
+  };
+
+  // Get max amount for trend bar scaling - FIXED
+  const getMaxTrendAmount = () => {
+    const amounts = monthlyTrends.map((trend) => trend.total);
+    return Math.max(...amounts, 1); // Ensure at least 1 to avoid division by zero
   };
 
   if (loading) {
@@ -213,7 +218,11 @@ export default function SummaryScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent} // Added for bottom spacing
+    >
       {/* Month Selector */}
       <View style={styles.monthSelector}>
         <Text style={styles.sectionTitle}>Select Period</Text>
@@ -318,7 +327,7 @@ export default function SummaryScreen() {
             <Ionicons name="trending-up" size={20} color="#FF9800" />
           </View>
           <Text style={styles.statValue}>
-            {previousMonthTotal > 0
+            {previousMonthTotal > 0 || monthlyTotal > 0
               ? Math.abs(getPercentageChange()).toFixed(0)
               : "0"}
             %
@@ -441,30 +450,36 @@ export default function SummaryScreen() {
         )}
       </View>
 
-      {/* Monthly Trends */}
+      {/* Monthly Trends - FIXED */}
       <View style={styles.trendsCard}>
         <Text style={styles.trendsTitle}>6-Month Spending Trend</Text>
         <View style={styles.trendsList}>
-          {monthlyTrends.map((trend, index) => (
-            <View key={index} style={styles.trendItem}>
-              <Text style={styles.trendMonth}>{trend.month}</Text>
-              <View style={styles.trendBarContainer}>
-                <View
-                  style={[
-                    styles.trendBar,
-                    {
-                      width: `${
-                        (trend.total /
-                          Math.max(...monthlyTrends.map((t) => t.total))) *
-                        80
-                      }%`,
-                    },
-                  ]}
-                />
+          {monthlyTrends.map((trend, index) => {
+            const maxAmount = getMaxTrendAmount();
+            const barWidth =
+              maxAmount > 0 ? (trend.total / maxAmount) * 100 : 0;
+
+            return (
+              <View key={index} style={styles.trendItem}>
+                <Text style={styles.trendMonth}>{trend.month}</Text>
+                <View style={styles.trendBarContainer}>
+                  <View
+                    style={[
+                      styles.trendBar,
+                      {
+                        width: `${barWidth}%`,
+                        backgroundColor:
+                          trend.total > 0 ? "#997bff" : "#f0f0f0",
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.trendAmount}>
+                  ${trend.total.toFixed(2)}
+                </Text>
               </View>
-              <Text style={styles.trendAmount}>${trend.total.toFixed(2)}</Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </View>
     </ScrollView>
@@ -489,6 +504,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  scrollContent: {
+    paddingBottom: 120, // Added bottom padding for spacing
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -504,6 +522,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
+    paddingBottom: 120, // Added bottom padding for empty state
   },
   emptyTitle: {
     fontSize: 20,
@@ -806,7 +825,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   trendMonth: {
-    width: 60,
+    width: 70,
     fontSize: 12,
     color: "#666",
     fontWeight: "500",
@@ -819,8 +838,8 @@ const styles = StyleSheet.create({
   },
   trendBar: {
     height: "100%",
-    backgroundColor: "#997bff",
     borderRadius: 4,
+    minWidth: 0,
   },
   trendAmount: {
     width: 60,

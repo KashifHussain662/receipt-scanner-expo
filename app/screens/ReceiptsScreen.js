@@ -21,7 +21,7 @@ export default function ReceiptsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadReceipts();
-    }, [])
+    }, [sortBy]) // Added sortBy as dependency
   );
 
   const loadReceipts = async () => {
@@ -34,15 +34,18 @@ export default function ReceiptsScreen() {
   };
 
   const sortedReceipts = (receiptsList) => {
-    return receiptsList.sort((a, b) => {
+    // Create a copy of the array to avoid mutating the original
+    return [...receiptsList].sort((a, b) => {
       switch (sortBy) {
         case "amount":
-          return parseFloat(b.total_amount) - parseFloat(a.total_amount);
+          return (
+            parseFloat(b.total_amount || 0) - parseFloat(a.total_amount || 0)
+          );
         case "vendor":
-          return a.vendor_name.localeCompare(b.vendor_name);
+          return (a.vendor_name || "").localeCompare(b.vendor_name || "");
         case "date":
         default:
-          return new Date(b.date) - new Date(a.date);
+          return new Date(b.date || 0) - new Date(a.date || 0);
       }
     });
   };
@@ -65,7 +68,11 @@ export default function ReceiptsScreen() {
           onPress: async () => {
             try {
               await deleteReceipt(id);
-              setReceipts(receipts.filter((receipt) => receipt.id !== id));
+              // Re-sort after deletion
+              const updatedReceipts = receipts.filter(
+                (receipt) => receipt.id !== id
+              );
+              setReceipts(sortedReceipts(updatedReceipts));
             } catch (error) {
               Alert.alert("Error", "Failed to delete receipt");
             }
@@ -73,6 +80,12 @@ export default function ReceiptsScreen() {
         },
       ]
     );
+  };
+
+  const handleSortChange = (newSortBy) => {
+    setSortBy(newSortBy);
+    // Immediately re-sort the current receipts when sort option changes
+    setReceipts(sortedReceipts(receipts));
   };
 
   const totalExpenses = receipts.reduce(
@@ -100,7 +113,7 @@ export default function ReceiptsScreen() {
             styles.sortButton,
             sortBy === "date" && styles.sortButtonActive,
           ]}
-          onPress={() => setSortBy("date")}
+          onPress={() => handleSortChange("date")}
         >
           <Text
             style={[
@@ -116,7 +129,7 @@ export default function ReceiptsScreen() {
             styles.sortButton,
             sortBy === "amount" && styles.sortButtonActive,
           ]}
-          onPress={() => setSortBy("amount")}
+          onPress={() => handleSortChange("amount")}
         >
           <Text
             style={[
@@ -132,7 +145,7 @@ export default function ReceiptsScreen() {
             styles.sortButton,
             sortBy === "vendor" && styles.sortButtonActive,
           ]}
-          onPress={() => setSortBy("vendor")}
+          onPress={() => handleSortChange("vendor")}
         >
           <Text
             style={[
@@ -184,7 +197,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: 120,
   },
   header: {
     backgroundColor: "white",
