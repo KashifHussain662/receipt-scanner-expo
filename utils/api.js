@@ -1,18 +1,22 @@
 import * as FileSystem from "expo-file-system";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 // OCR.space API key (free tier)
 const OCR_API_KEY = "K87899142388957";
 const OCR_API_URL = "https://api.ocr.space/parse/image";
 
+// Maximum file size for OCR.space (1MB = 1024 KB)
+const MAX_FILE_SIZE_KB = 1000;
+
 export const extractReceiptData = async (imageUri) => {
   try {
     console.log("Extracting receipt data from image...");
 
-    // Pehle OCR se text extract karo
+    // Use OCR with compression
     const extractedText = await extractTextWithOCR(imageUri);
     console.log("Extracted Text:", extractedText);
 
-    // Phir text ko parse karo with enhanced logic
+    // Parse text with enhanced logic
     const receiptData = parseReceiptText(extractedText);
     console.log("Parsed Receipt Data:", receiptData);
 
@@ -23,21 +27,35 @@ export const extractReceiptData = async (imageUri) => {
   }
 };
 
-// OCR.space API se text extract karo
+// Fixed OCR function with updated FileSystem API
 const extractTextWithOCR = async (imageUri) => {
   try {
     console.log("Processing image URI:", imageUri);
 
+    // Compress image first to avoid size issues
+    const compressedUri = await compressImageForOCR(imageUri);
+
     let base64Image;
     try {
-      base64Image = await FileSystem.readAsStringAsync(imageUri, {
+      // Use the new FileSystem API with File class
+      const file = new FileSystem.File(compressedUri);
+      const fileInfo = await file.getInfo();
+
+      if (!fileInfo.exists) {
+        throw new Error("File does not exist");
+      }
+
+      console.log(
+        `File size after compression: ${(fileInfo.size / 1024).toFixed(2)} KB`
+      );
+
+      // Read file as base64 using the new API
+      base64Image = await file.readAsStringAsync({
         encoding: FileSystem.EncodingType.Base64,
       });
     } catch (fsError) {
-      console.log(
-        "FileSystem encoding failed, using file URI method:",
-        fsError
-      );
+      console.log("FileSystem operation failed:", fsError);
+      // Fallback to using the compressed URI directly without base64
       base64Image = null;
     }
 
@@ -53,8 +71,9 @@ const extractTextWithOCR = async (imageUri) => {
     if (base64Image) {
       formData.append("base64Image", `data:image/jpeg;base64,${base64Image}`);
     } else {
+      // Use compressed file URI directly
       formData.append("file", {
-        uri: imageUri,
+        uri: compressedUri,
         type: "image/jpeg",
         name: "receipt.jpg",
       });
@@ -84,12 +103,88 @@ const extractTextWithOCR = async (imageUri) => {
     }
 
     const extractedText = data.ParsedResults[0].ParsedText;
-    console.log("Successfully extracted text");
+    console.log("Successfully extracted text:", extractedText ? "Yes" : "No");
 
     return extractedText;
   } catch (error) {
     console.error("OCR API error:", error);
     throw error;
+  }
+};
+
+// Image compression function with simplified file checking
+const compressImageForOCR = async (imageUri) => {
+  try {
+    console.log("Compressing image for OCR...");
+
+    // Compress the image without checking file size first (we'll check after compression)
+    const compressedImage = await manipulateAsync(
+      imageUri,
+      [{ resize: { width: 800 } }], // Resize to max width 800px for better compression
+      {
+        compress: 0.6, // 60% quality for smaller file size
+        format: SaveFormat.JPEG,
+      }
+    );
+
+    // Try to check file size with new API, but don't fail if it doesn't work
+    try {
+      const file = new FileSystem.File(compressedImage.uri);
+      const fileInfo = await file.getInfo();
+      console.log(
+        `Compressed file size: ${(fileInfo.size / 1024).toFixed(2)} KB`
+      );
+
+      // If still too large, compress more aggressively
+      if (fileInfo.size > MAX_FILE_SIZE_KB * 1024) {
+        console.log("File still too large, compressing more aggressively...");
+        const moreCompressed = await manipulateAsync(
+          compressedImage.uri,
+          [{ resize: { width: 600 } }],
+          {
+            compress: 0.4, // 40% quality
+            format: SaveFormat.JPEG,
+          }
+        );
+
+        return moreCompressed.uri;
+      }
+    } catch (sizeError) {
+      console.log(
+        "Could not check file size, using compressed image:",
+        sizeError
+      );
+    }
+
+    return compressedImage.uri;
+  } catch (error) {
+    console.log("Image compression failed, using original:", error);
+    return imageUri; // Fallback to original image
+  }
+};
+
+// Alternative: Simple compression without file size checks
+const compressImageSimple = async (imageUri) => {
+  try {
+    console.log("Compressing image with simple method...");
+
+    // Direct compression without file operations
+    const compressedImage = await manipulateAsync(
+      imageUri,
+      [
+        { resize: { width: 800 } }, // Resize to reasonable width
+      ],
+      {
+        compress: 0.5, // 50% quality
+        format: SaveFormat.JPEG,
+        base64: false,
+      }
+    );
+
+    return compressedImage.uri;
+  } catch (error) {
+    console.log("Simple compression failed:", error);
+    return imageUri;
   }
 };
 
@@ -174,7 +269,6 @@ const extractVendorName = (lines) => {
   let bestScore = 0;
 
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
-    // Check first 10 lines
     const line = lines[i].trim();
 
     for (const pattern of vendorPatterns) {
@@ -492,7 +586,6 @@ const determineCategory = (vendorName) => {
         "restaurant",
         "coffee",
         "tea",
-        "bakery",
         "bakery",
         "food",
         "dining",

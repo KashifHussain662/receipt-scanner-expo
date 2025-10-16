@@ -1,3 +1,4 @@
+import { useNavigation } from "@react-navigation/native"; // Add navigation hook
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
 import {
@@ -9,20 +10,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { extractReceiptData, mockReceiptData } from "../../utils/api"; // Import mockReceiptData
+import { extractReceiptData, mockReceiptData } from "../../utils/api";
 import { saveReceipt } from "../../utils/storage";
-import CameraScreen from "../components/CameraScreen";
 import ReceiptCard from "../components/ReceiptCard";
 
 export default function ScanScreen() {
-  const [showCamera, setShowCamera] = useState(false);
+  const navigation = useNavigation(); // Use navigation hook
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedReceipt, setScannedReceipt] = useState(null);
 
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ Correct for your version
+        mediaTypes: ["images"], // ✅ Fixed for new Expo version
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
@@ -38,6 +38,13 @@ export default function ScanScreen() {
     }
   };
 
+  const openCamera = () => {
+    // Navigate to CameraScreen instead of using local state
+    navigation.navigate("CameraScreen", {
+      onPhotoTaken: handlePhotoTaken,
+    });
+  };
+
   const processImage = async (imageUri) => {
     setIsProcessing(true);
     try {
@@ -46,8 +53,7 @@ export default function ScanScreen() {
         receiptData = await extractReceiptData(imageUri);
       } catch (apiError) {
         console.log("API failed, using mock data:", apiError);
-        // Fallback to mock data
-        receiptData = mockReceiptData(); // Yeh ab work karega
+        receiptData = mockReceiptData();
       }
 
       const savedReceipt = await saveReceipt(receiptData);
@@ -62,22 +68,13 @@ export default function ScanScreen() {
   };
 
   const handlePhotoTaken = (imageUri) => {
-    setShowCamera(false);
+    // Go back to ScanScreen after taking photo
     processImage(imageUri);
   };
 
   const handleDeleteReceipt = async (id) => {
     setScannedReceipt(null);
   };
-
-  if (showCamera) {
-    return (
-      <CameraScreen
-        onPhotoTaken={handlePhotoTaken}
-        onClose={() => setShowCamera(false)}
-      />
-    );
-  }
 
   return (
     <ScrollView style={styles.container}>
@@ -100,7 +97,7 @@ export default function ScanScreen() {
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => setShowCamera(true)}
+            onPress={openCamera} // Use navigation instead of state
           >
             <Text style={styles.actionButtonText}>📷 Camera</Text>
             <Text style={styles.actionButtonSubtext}>Take a photo</Text>

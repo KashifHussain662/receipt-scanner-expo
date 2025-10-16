@@ -12,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -45,7 +47,8 @@
         {
           "photosPermission": "The app accesses your photos to let you select receipt images."
         }
-      ]
+      ],
+      "expo-router"
     ]
   }
 }
