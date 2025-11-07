@@ -1,5 +1,6 @@
 import { createStackNavigator } from "@react-navigation/stack";
 import CameraScreen from "../components/CameraScreen";
+import FieldsScreen from "../screens/FieldsScreen";
 import AppTabs from "./AppTabs";
 
 const Stack = createStackNavigator();
@@ -19,6 +20,14 @@ const AuthStack = () => {
           headerShown: false,
           presentation: "modal",
         }}
+      />
+      <Stack.Screen
+        name="FieldsScreen"
+        component={FieldsScreen}
+        // options={{
+        //   headerShown: false,
+        //   presentation: "modal",
+        // }}
       />
     </Stack.Navigator>
   );

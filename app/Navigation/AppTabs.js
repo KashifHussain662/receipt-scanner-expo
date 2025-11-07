@@ -1,30 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Dimensions, Platform, StyleSheet, View } from "react-native";
+import CustomFieldsScreen from "../screens/CustomFieldsScreen";
 import ReceiptsScreen from "../screens/ReceiptsScreen";
 import ScanScreen from "../screens/ScanScreen";
 import SummaryScreen from "../screens/SummaryScreen";
 
 const { width } = Dimensions.get("window");
-
 const Tab = createBottomTabNavigator();
 
 export default function AppTabs() {
   return (
     <View style={styles.container}>
-      <View style={styles.tabBarBackground} />
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ color, size }) => {
             let iconName;
-
             if (route.name === "Scan") {
               iconName = "camera-outline";
             } else if (route.name === "Receipts") {
               iconName = "receipt-outline";
             } else if (route.name === "Summary") {
               iconName = "pie-chart-outline";
-            } else if (route.name === "Settings") {
+            } else if (route.name === "CustomFieldsScreen") {
               iconName = "settings-outline";
             }
             return <Ionicons name={iconName} size={size} color={color} />;
@@ -36,21 +34,19 @@ export default function AppTabs() {
             fontWeight: "600",
           },
           tabBarStyle: {
-            backgroundColor: "#fff",
-            borderTopWidth: 0,
-            height: Platform.OS === "ios" ? 60 : 70,
-            marginHorizontal: width * 0.05,
-            borderRadius: 124,
             position: "absolute",
-            bottom: Platform.OS === "ios" ? 20 : 12,
-            left: 0,
-            right: 0,
-            bottom: 40,
+            bottom: Platform.OS === "ios" ? 30 : 20,
+            left: width * 0.1,
+            right: width * 0.1,
             elevation: 12,
+            backgroundColor: "#fff",
+            borderRadius: 40,
+            height: Platform.OS === "ios" ? 70 : 65,
             shadowColor: "#000",
-            shadowOpacity: 0.1,
-            shadowRadius: 15,
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
             shadowOffset: { width: 0, height: 5 },
+            borderTopWidth: 0,
           },
           headerStyle: {
             backgroundColor: "#997bff",
@@ -61,6 +57,11 @@ export default function AppTabs() {
           },
         })}
       >
+        <Tab.Screen
+          name="CustomFieldsScreen"
+          component={CustomFieldsScreen}
+          options={{ title: "Create Fields" }}
+        />
         <Tab.Screen
           name="Scan"
           component={ScanScreen}
@@ -84,16 +85,6 @@ export default function AppTabs() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  tabBarBackground: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: Platform.OS === "ios" ? 90 : 80,
-    backgroundColor: "#f2f2f2",
-    borderTopLeftRadius: 124,
-    borderTopRightRadius: 124,
-    zIndex: -1,
+    backgroundColor: "#f8f8f8",
   },
 });

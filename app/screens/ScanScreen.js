@@ -24,7 +24,7 @@ export default function ScanScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"], // ✅ Fixed for new Expo version
         allowsEditing: true,
-        aspect: [4, 3],
+        // aspect: [4, 3],
         quality: 0.7,
         base64: true,
       });
