@@ -223,7 +223,7 @@ export default function FieldsScreen({ route, navigation }) {
         !item.enabled && styles.disabledFieldCard,
       ]}
     >
-      <View style={styles.fieldMainContent}>
+      <View style={styles.fieldCardContent}>
         <View style={styles.fieldIconContainer}>
           <Ionicons
             name={fieldTypes.find((t) => t.value === item.type)?.icon || "help"}
@@ -232,29 +232,21 @@ export default function FieldsScreen({ route, navigation }) {
           />
         </View>
 
-        <View style={styles.fieldContent}>
+        <View style={styles.fieldInfo}>
           <View style={styles.fieldHeader}>
-            <View style={styles.fieldInfo}>
-              <Text
-                style={[
-                  styles.fieldLabel,
-                  !item.enabled && styles.disabledText,
-                ]}
-              >
-                {item.label}
-              </Text>
-              <Text style={styles.fieldKey}>@{item.key}</Text>
-            </View>
+            <Text
+              style={[styles.fieldLabel, !item.enabled && styles.disabledText]}
+            >
+              {item.label}
+            </Text>
             <View style={styles.fieldBadges}>
               {item.custom && (
                 <View style={styles.customBadge}>
-                  <Ionicons name="add-circle" size={12} color="#8B5CF6" />
                   <Text style={styles.customBadgeText}>Custom</Text>
                 </View>
               )}
               {item.common && (
                 <View style={styles.commonBadge}>
-                  <Ionicons name="shield-checkmark" size={12} color="#059669" />
                   <Text style={styles.commonBadgeText}>System</Text>
                 </View>
               )}
@@ -262,70 +254,64 @@ export default function FieldsScreen({ route, navigation }) {
           </View>
 
           <View style={styles.fieldDetails}>
-            <View
-              style={[
-                styles.typeBadge,
-                { backgroundColor: getTypeColor(item.type) + "15" },
-              ]}
-            >
-              <Text
-                style={[styles.typeText, { color: getTypeColor(item.type) }]}
-              >
-                {item.type}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.statusToggle,
-                item.enabled ? styles.statusEnabled : styles.statusDisabled,
-              ]}
-              onPress={() => toggleFieldEnabled(item.key)}
-              disabled={item.common}
-            >
+            <Text style={styles.fieldKey}>@{item.key}</Text>
+            <View style={styles.statsContainer}>
               <View
                 style={[
-                  styles.statusDot,
-                  item.enabled
-                    ? styles.statusDotEnabled
-                    : styles.statusDotDisabled,
+                  styles.typeBadge,
+                  { backgroundColor: getTypeColor(item.type) + "15" },
                 ]}
-              />
-              <Text style={styles.statusText}>
-                {item.enabled ? "Active" : "Inactive"}
-              </Text>
-            </TouchableOpacity>
+              >
+                <Text
+                  style={[styles.typeText, { color: getTypeColor(item.type) }]}
+                >
+                  {item.type}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.statusToggle,
+                  item.enabled ? styles.statusEnabled : styles.statusDisabled,
+                ]}
+                onPress={() => toggleFieldEnabled(item.key)}
+                disabled={item.common}
+              >
+                <View
+                  style={[
+                    styles.statusDot,
+                    item.enabled
+                      ? styles.statusDotEnabled
+                      : styles.statusDotDisabled,
+                  ]}
+                />
+                <Text style={styles.statusText}>
+                  {item.enabled ? "Active" : "Inactive"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
 
-      <View style={styles.fieldActions}>
-        {item.custom ? (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              onPress={() => handleEditField(item)}
-              style={styles.editButton}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={18} color="#3B82F6" />
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleDeleteField(item.key)}
-              style={styles.deleteButton}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={18} color="#EF4444" />
-              <Text style={styles.deleteButtonText}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.lockedContainer}>
-            <Ionicons name="lock-closed" size={14} color="#6B7280" />
-            <Text style={styles.lockedText}>System field - read only</Text>
-          </View>
-        )}
-      </View>
+      {item.custom && (
+        <View style={styles.fieldActions}>
+          <TouchableOpacity
+            onPress={() => handleEditField(item)}
+            style={styles.editButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="create-outline" size={16} color="#3B82F6" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDeleteField(item.key)}
+            style={styles.deleteButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
@@ -344,7 +330,7 @@ export default function FieldsScreen({ route, navigation }) {
       >
         <Ionicons
           name={type.icon}
-          size={24}
+          size={20}
           color={newField.type === type.value ? "white" : type.color}
         />
       </View>
@@ -364,7 +350,7 @@ export default function FieldsScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       {/* Enhanced Header */}
-      {/* <View style={styles.header}>
+      <View style={styles.header}>
         <View style={styles.headerBackground} />
         <View style={styles.headerContent}>
           <TouchableOpacity
@@ -378,8 +364,16 @@ export default function FieldsScreen({ route, navigation }) {
             <Text style={styles.title}>{vendor.name}</Text>
             <Text style={styles.subtitle}>Field configuration</Text>
           </View>
+          {/* Small Add Button in Right Corner */}
+          <TouchableOpacity
+            style={styles.smallAddButton}
+            onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={20} color="white" />
+          </TouchableOpacity>
         </View>
-      </View> */}
+      </View>
 
       {/* Enhanced Stats Cards */}
       <View style={styles.statsContainer}>
@@ -432,22 +426,18 @@ export default function FieldsScreen({ route, navigation }) {
             <Text style={styles.emptyDescription}>
               Add custom fields to enhance your vendor data collection
             </Text>
+            <TouchableOpacity
+              style={styles.emptyStateButton}
+              onPress={() => setModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={20} color="white" />
+              <Text style={styles.emptyStateButtonText}>
+                Create First Field
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
-      </View>
-
-      {/* Fixed Bottom Button */}
-      <View style={styles.bottomButtonContainer}>
-        <TouchableOpacity
-          style={styles.bottomButton}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.bottomButtonContent}>
-            <Ionicons name="add" size={24} color="white" />
-            <Text style={styles.bottomButtonText}>New Field</Text>
-          </View>
-        </TouchableOpacity>
       </View>
 
       {/* Enhanced Create/Edit Field Modal */}
@@ -662,6 +652,20 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontWeight: "500",
   },
+  // Small Add Button in Right Corner
+  smallAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#4F46E5",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   statsContainer: {
     flexDirection: "row",
     padding: 20,
@@ -719,13 +723,14 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
   fieldsList: {
-    gap: 12, // Reduced gap between cards
-    paddingBottom: 100, // Added padding for bottom button
+    gap: 12,
+    paddingBottom: 20,
   },
+  // Compact Field Cards (similar to vendor cards)
   fieldCard: {
     backgroundColor: "white",
-    borderRadius: 16, // Slightly smaller radius
-    padding: 16, // Reduced padding
+    borderRadius: 16,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -733,7 +738,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: "#F3F4F6",
-    // minHeight: 120, // Fixed smaller height
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 80, // Similar to vendor card height
   },
   commonFieldCard: {
     borderLeftWidth: 4,
@@ -742,100 +750,95 @@ const styles = StyleSheet.create({
   disabledFieldCard: {
     opacity: 0.6,
   },
-  fieldMainContent: {
+  fieldCardContent: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12, // Reduced gap
-    marginBottom: 12, // Reduced margin
+    alignItems: "center",
+    flex: 1,
+    gap: 12,
   },
   fieldIconContainer: {
-    width: 40, // Smaller icon container
+    width: 40,
     height: 40,
-    borderRadius: 10, // Smaller radius
+    borderRadius: 10,
     backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#F1F5F9",
   },
-  fieldContent: {
+  fieldInfo: {
     flex: 1,
   },
   fieldHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8, // Reduced margin
-  },
-  fieldInfo: {
-    flex: 1,
+    marginBottom: 6,
   },
   fieldLabel: {
-    fontSize: 16, // Slightly smaller font
+    fontSize: 16,
     fontWeight: "700",
     color: "#111827",
-    marginBottom: 2, // Reduced margin
+    flex: 1,
   },
   fieldKey: {
-    fontSize: 11, // Smaller font
+    fontSize: 11,
     color: "#6B7280",
     fontFamily: "monospace",
     fontWeight: "500",
+    marginBottom: 6,
   },
   fieldBadges: {
     flexDirection: "row",
-    gap: 4, // Reduced gap
+    gap: 4,
   },
   customBadge: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#FAF5FF",
-    paddingHorizontal: 6, // Reduced padding
-    paddingVertical: 3, // Reduced padding
-    borderRadius: 4, // Smaller radius
-    gap: 3, // Reduced gap
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   customBadgeText: {
-    fontSize: 9, // Smaller font
+    fontSize: 9,
     color: "#8B5CF6",
     fontWeight: "700",
   },
   commonBadge: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#F0FDF4",
-    paddingHorizontal: 6, // Reduced padding
-    paddingVertical: 3, // Reduced padding
-    borderRadius: 4, // Smaller radius
-    gap: 3, // Reduced gap
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   commonBadgeText: {
-    fontSize: 9, // Smaller font
+    fontSize: 9,
     color: "#059669",
     fontWeight: "700",
   },
   fieldDetails: {
+    // No specific styles needed, using flex
+  },
+  statsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8, // Reduced gap
+    gap: 8,
   },
   typeBadge: {
-    paddingHorizontal: 8, // Reduced padding
-    paddingVertical: 4, // Reduced padding
-    borderRadius: 6, // Smaller radius
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   typeText: {
-    fontSize: 11, // Smaller font
+    fontSize: 11,
     fontWeight: "700",
     textTransform: "capitalize",
   },
   statusToggle: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8, // Reduced padding
-    paddingVertical: 4, // Reduced padding
-    borderRadius: 6, // Smaller radius
-    gap: 4, // Reduced gap
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
   },
   statusEnabled: {
     backgroundColor: "#F0FDF4",
@@ -844,7 +847,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
   },
   statusDot: {
-    width: 6, // Smaller dot
+    width: 6,
     height: 6,
     borderRadius: 3,
   },
@@ -855,62 +858,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#EF4444",
   },
   statusText: {
-    fontSize: 11, // Smaller font
+    fontSize: 11,
     color: "#374151",
     fontWeight: "600",
   },
   fieldActions: {
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    paddingTop: 12, // Reduced padding
-  },
-  actionButtons: {
     flexDirection: "row",
-    gap: 8, // Reduced gap
+    gap: 8,
   },
   editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 12, // Reduced padding
-    paddingVertical: 8, // Reduced padding
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: "#EFF6FF",
-    borderRadius: 8, // Smaller radius
-    gap: 4, // Reduced gap
-    flex: 1,
-  },
-  editButtonText: {
-    color: "#3B82F6",
-    fontSize: 12, // Smaller font
-    fontWeight: "600",
+    justifyContent: "center",
+    alignItems: "center",
   },
   deleteButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 12, // Reduced padding
-    paddingVertical: 8, // Reduced padding
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: "#FEF2F2",
-    borderRadius: 8, // Smaller radius
-    gap: 4, // Reduced gap
-    flex: 1,
-  },
-  deleteButtonText: {
-    color: "#EF4444",
-    fontSize: 12, // Smaller font
-    fontWeight: "600",
-  },
-  lockedContainer: {
-    flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    padding: 6, // Reduced padding
-  },
-  lockedText: {
-    fontSize: 11, // Smaller font
-    color: "#6B7280",
-    fontWeight: "500",
+    alignItems: "center",
   },
   disabledText: {
     color: "#9CA3AF",
@@ -944,39 +914,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 32,
   },
-  // Bottom Button Styles
-  bottomButtonContainer: {
-    // position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: "transparent",
+  emptyStateButton: {
+    flexDirection: "row",
     alignItems: "center",
-  },
-  bottomButton: {
-    width: "90%",
+    backgroundColor: "#4F46E5",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     borderRadius: 16,
+    gap: 8,
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
-    overflow: "hidden",
   },
-  bottomButtonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#4F46E5",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-  },
-  bottomButtonText: {
+  emptyStateButtonText: {
     color: "white",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
   },
   modalOverlay: {
@@ -1086,9 +1040,9 @@ const styles = StyleSheet.create({
     borderColor: "#4F46E5",
   },
   typeOptionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
