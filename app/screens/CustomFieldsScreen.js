@@ -1,7 +1,5 @@
-// CustomFieldsScreen.js
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   FlatList,
@@ -12,88 +10,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { addVendor, deleteVendor } from "../../store/vendorsSlice";
+import VendorCard from "../components/VendorCard";
 
-export default function CustomFieldsScreen({ navigation }) {
-  const [vendors, setVendors] = useState([]);
+const CustomFieldsScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
+  const { vendors } = useSelector((state) => state.vendors);
   const [vendorModalVisible, setVendorModalVisible] = useState(false);
   const [newVendorName, setNewVendorName] = useState("");
-
-  useEffect(() => {
-    loadVendors();
-  }, []);
-
-  const loadVendors = async () => {
-    try {
-      const savedVendors = await AsyncStorage.getItem("vendorFields");
-      if (savedVendors) {
-        setVendors(JSON.parse(savedVendors));
-      } else {
-        const defaultVendors = [
-          {
-            id: "1",
-            name: "General",
-            fields: [
-              {
-                key: "vendor_name",
-                label: "Vendor Name",
-                type: "text",
-                enabled: true,
-                common: true,
-              },
-              {
-                key: "total_amount",
-                label: "Total Amount",
-                type: "amount",
-                enabled: true,
-                common: true,
-              },
-              {
-                key: "tax",
-                label: "Tax Amount",
-                type: "amount",
-                enabled: true,
-                common: true,
-              },
-              {
-                key: "date",
-                label: "Purchase Date",
-                type: "date",
-                enabled: true,
-                common: true,
-              },
-              {
-                key: "category",
-                label: "Category",
-                type: "category",
-                enabled: true,
-                common: true,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-          },
-        ];
-        setVendors(defaultVendors);
-        await AsyncStorage.setItem(
-          "vendorFields",
-          JSON.stringify(defaultVendors)
-        );
-      }
-    } catch (error) {
-      console.log("Error loading vendors:", error);
-    }
-  };
-
-  const saveVendors = async (updatedVendors) => {
-    try {
-      await AsyncStorage.setItem(
-        "vendorFields",
-        JSON.stringify(updatedVendors)
-      );
-      setVendors(updatedVendors);
-    } catch (error) {
-      Alert.alert("Error", "Failed to save data");
-    }
-  };
 
   const addNewVendor = () => {
     if (!newVendorName.trim()) {
@@ -152,13 +77,12 @@ export default function CustomFieldsScreen({ navigation }) {
       createdAt: new Date().toISOString(),
     };
 
-    const updatedVendors = [...vendors, newVendor];
-    saveVendors(updatedVendors);
+    dispatch(addVendor(newVendor));
     setNewVendorName("");
     setVendorModalVisible(false);
   };
 
-  const deleteVendor = (vendorId) => {
+  const handleDeleteVendor = (vendorId) => {
     if (vendors.length <= 1) {
       Alert.alert("Error", "You must have at least one vendor");
       return;
@@ -173,8 +97,7 @@ export default function CustomFieldsScreen({ navigation }) {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            const updatedVendors = vendors.filter((v) => v.id !== vendorId);
-            saveVendors(updatedVendors);
+            dispatch(deleteVendor(vendorId));
           },
         },
       ]
@@ -186,75 +109,30 @@ export default function CustomFieldsScreen({ navigation }) {
   };
 
   const renderVendorItem = ({ item, index }) => (
-    <TouchableOpacity
-      style={[styles.vendorCard, index === 0 && styles.firstVendorCard]}
+    <VendorCard
+      vendor={item}
+      index={index}
       onPress={() => navigateToFields(item)}
-      onLongPress={() => deleteVendor(item.id)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.vendorCardContent}>
-        <View style={styles.vendorIconContainer}>
-          <Ionicons
-            name="business"
-            size={24}
-            color={index === 0 ? "#6366F1" : "#8B5CF6"}
-          />
-        </View>
-
-        <View style={styles.vendorInfo}>
-          <View style={styles.vendorHeader}>
-            <Text style={styles.vendorName}>{item.name}</Text>
-            {index === 0 && (
-              <View style={styles.defaultBadge}>
-                <Text style={styles.defaultBadgeText}>Default</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-              <Text style={styles.statText}>
-                {item.fields.filter((f) => f.enabled).length} active
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="add-circle" size={14} color="#8B5CF6" />
-              <Text style={styles.statText}>
-                {item.fields.filter((f) => f.custom).length} custom
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.vendorActions}>
-          <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
-        </View>
-      </View>
-
-      <View style={styles.vendorFooter}>
-        <View style={styles.footerInfo}>
-          <Ionicons name="calendar-outline" size={12} color="#9CA3AF" />
-          <Text style={styles.vendorDate}>
-            Created{" "}
-            {new Date(item.createdAt).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </Text>
-        </View>
-        <Text style={styles.totalFields}>
-          {item.fields.length} total fields
-        </Text>
-      </View>
-    </TouchableOpacity>
+      onLongPress={() => handleDeleteVendor(item.id)}
+    />
   );
+
+  const stats = {
+    totalVendors: vendors.length,
+    activeFields: vendors.reduce(
+      (acc, vendor) => acc + vendor.fields.filter((f) => f.enabled).length,
+      0
+    ),
+    customFields: vendors.reduce(
+      (acc, vendor) => acc + vendor.fields.filter((f) => f.custom).length,
+      0
+    ),
+  };
 
   return (
     <View style={styles.container}>
-      {/* Enhanced Header */}
-      <View style={styles.header}>
+      {/* Header */}
+      {/* <View style={styles.header}>
         <View style={styles.headerBackground} />
         <View style={styles.headerContent}>
           <View>
@@ -263,46 +141,24 @@ export default function CustomFieldsScreen({ navigation }) {
               Organize and customize vendor fields
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => setVendorModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.buttonGradient}>
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.primaryButtonText}>New Vendor</Text>
-            </View>
-          </TouchableOpacity>
         </View>
-      </View>
+      </View> */}
 
       {/* Stats Overview */}
       <View style={styles.statsOverview}>
         <View style={styles.statCard}>
           <Ionicons name="business" size={24} color="#6366F1" />
-          <Text style={styles.statNumber}>{vendors.length}</Text>
+          <Text style={styles.statNumber}>{stats.totalVendors}</Text>
           <Text style={styles.statLabel}>Total Vendors</Text>
         </View>
         <View style={styles.statCard}>
           <Ionicons name="list" size={24} color="#10B981" />
-          <Text style={styles.statNumber}>
-            {vendors.reduce(
-              (acc, vendor) =>
-                acc + vendor.fields.filter((f) => f.enabled).length,
-              0
-            )}
-          </Text>
+          <Text style={styles.statNumber}>{stats.activeFields}</Text>
           <Text style={styles.statLabel}>Active Fields</Text>
         </View>
         <View style={styles.statCard}>
           <Ionicons name="add-circle" size={24} color="#8B5CF6" />
-          <Text style={styles.statNumber}>
-            {vendors.reduce(
-              (acc, vendor) =>
-                acc + vendor.fields.filter((f) => f.custom).length,
-              0
-            )}
-          </Text>
+          <Text style={styles.statNumber}>{stats.customFields}</Text>
           <Text style={styles.statLabel}>Custom Fields</Text>
         </View>
       </View>
@@ -334,21 +190,23 @@ export default function CustomFieldsScreen({ navigation }) {
               Create your first vendor to start managing custom fields and
               streamline your workflow
             </Text>
-            <TouchableOpacity
-              style={styles.emptyStateButton}
-              onPress={() => setVendorModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.emptyStateButtonText}>
-                Create First Vendor
-              </Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Enhanced Add Vendor Modal */}
+      {/* Bottom Create Button */}
+      <View style={styles.bottomButtonContainer}>
+        <TouchableOpacity
+          style={styles.bottomCreateButton}
+          onPress={() => setVendorModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={24} color="white" />
+          <Text style={styles.bottomCreateButtonText}>Create New Vendor</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Add Vendor Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -408,7 +266,7 @@ export default function CustomFieldsScreen({ navigation }) {
                 onPress={addNewVendor}
                 activeOpacity={0.8}
               >
-                <Ionicons name="add" size={20} color="white" />
+                <Ionicons name="add" size={20} color="red" />
                 <Text style={styles.saveButtonText}>Create Vendor</Text>
               </TouchableOpacity>
             </View>
@@ -417,7 +275,7 @@ export default function CustomFieldsScreen({ navigation }) {
       </Modal>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -463,25 +321,32 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontWeight: "500",
   },
-  primaryButton: {
+  bottomButtonContainer: {
+    position: "absolute",
+    bottom: 100,
+    left: 0,
+    right: 0,
+    padding: 20,
+    backgroundColor: "transparent",
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  bottomCreateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#6366F1",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     borderRadius: 16,
+    gap: 8,
     shadowColor: "#6366F1",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
-    overflow: "hidden",
   },
-  buttonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#6366F1",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 16,
-    gap: 8,
-  },
-  primaryButtonText: {
+  bottomCreateButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "700",
@@ -521,6 +386,7 @@ const styles = StyleSheet.create({
   vendorsContainer: {
     flex: 1,
     padding: 20,
+    paddingBottom: 100,
   },
   sectionHeader: {
     marginBottom: 20,
@@ -538,105 +404,6 @@ const styles = StyleSheet.create({
   vendorsList: {
     gap: 16,
     paddingBottom: 100,
-  },
-  vendorCard: {
-    backgroundColor: "white",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
-    overflow: "hidden",
-  },
-  firstVendorCard: {
-    borderColor: "#E0E7FF",
-    backgroundColor: "#FAFBFF",
-  },
-  vendorCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
-    gap: 16,
-  },
-  vendorIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-  },
-  vendorInfo: {
-    flex: 1,
-  },
-  vendorHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  vendorName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  defaultBadge: {
-    backgroundColor: "#E0E7FF",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  defaultBadgeText: {
-    fontSize: 10,
-    color: "#6366F1",
-    fontWeight: "700",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  statItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  statText: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  vendorActions: {
-    padding: 4,
-  },
-  vendorFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    backgroundColor: "#FAFBFF",
-  },
-  footerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  vendorDate: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  totalFields: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "600",
   },
   emptyState: {
     flex: 1,
@@ -666,25 +433,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 32,
-  },
-  emptyStateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#6366F1",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 16,
-    gap: 8,
-    shadowColor: "#6366F1",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  emptyStateButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,
@@ -806,3 +554,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+export default CustomFieldsScreen;

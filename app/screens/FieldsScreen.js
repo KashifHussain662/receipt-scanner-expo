@@ -1,87 +1,38 @@
-// FieldsScreen.js
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   Alert,
   FlatList,
-  Modal,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  addField,
+  deleteField,
+  setCurrentVendorFields,
+  setModalVisible,
+  updateField,
+} from "../../store/fieldsSlice";
+import FieldCard from "../components/FieldCard";
+import FieldModal from "../components/FieldModal";
 
-export default function FieldsScreen({ route, navigation }) {
+const FieldsScreen = ({ route, navigation }) => {
   const { vendor } = route.params;
-  const [vendorFields, setVendorFields] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingField, setEditingField] = useState(null);
-  const [newField, setNewField] = useState({
-    name: "",
-    label: "",
-    type: "text",
-  });
-
-  // Available field types
-  const fieldTypes = [
-    { value: "text", label: "Text", icon: "text", color: "#10B981" },
-    { value: "number", label: "Number", icon: "calculator", color: "#3B82F6" },
-    { value: "amount", label: "Amount", icon: "cash", color: "#F59E0B" },
-    { value: "date", label: "Date", icon: "calendar", color: "#EF4444" },
-    {
-      value: "category",
-      label: "Category",
-      icon: "pricetag",
-      color: "#8B5CF6",
-    },
-    {
-      value: "boolean",
-      label: "Yes/No",
-      icon: "checkmark-circle",
-      color: "#EC4899",
-    },
-  ];
+  const dispatch = useDispatch();
+  const { currentVendorFields, modalVisible, editingField, newField } =
+    useSelector((state) => state.fields);
+  const { vendors } = useSelector((state) => state.vendors);
 
   useEffect(() => {
-    loadVendorFields();
-  }, [vendor]);
-
-  const loadVendorFields = async () => {
-    try {
-      const savedVendors = await AsyncStorage.getItem("vendorFields");
-      if (savedVendors) {
-        const vendorsData = JSON.parse(savedVendors);
-        const currentVendor = vendorsData.find((v) => v.id === vendor.id);
-        if (currentVendor) {
-          setVendorFields(currentVendor.fields);
-        }
-      }
-    } catch (error) {
-      console.log("Error loading vendor fields:", error);
+    // Load vendor fields from Redux store
+    const currentVendor = vendors.find((v) => v.id === vendor.id);
+    if (currentVendor) {
+      dispatch(setCurrentVendorFields(currentVendor.fields));
     }
-  };
-
-  const saveVendorFields = async (updatedFields) => {
-    try {
-      const savedVendors = await AsyncStorage.getItem("vendorFields");
-      if (savedVendors) {
-        const vendorsData = JSON.parse(savedVendors);
-        const updatedVendors = vendorsData.map((v) =>
-          v.id === vendor.id ? { ...v, fields: updatedFields } : v
-        );
-        await AsyncStorage.setItem(
-          "vendorFields",
-          JSON.stringify(updatedVendors)
-        );
-        setVendorFields(updatedFields);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to save fields");
-    }
-  };
+  }, [vendor, vendors]);
 
   const generateFieldKey = (fieldName) => {
     return fieldName
@@ -103,7 +54,7 @@ export default function FieldsScreen({ route, navigation }) {
 
     const fieldKey = generateFieldKey(newField.name);
 
-    const existingField = vendorFields.find(
+    const existingField = currentVendorFields.find(
       (field) => field.key === fieldKey && field.key !== editingField?.key
     );
     if (existingField) {
@@ -127,39 +78,21 @@ export default function FieldsScreen({ route, navigation }) {
       common: false,
     };
 
-    let updatedFields;
     if (editingField) {
-      updatedFields = vendorFields.map((field) =>
-        field.key === editingField.key ? fieldData : field
-      );
+      dispatch(updateField({ fieldKey: editingField.key, updates: fieldData }));
     } else {
-      updatedFields = [...vendorFields, fieldData];
+      dispatch(addField(fieldData));
     }
 
-    saveVendorFields(updatedFields);
-    resetForm();
+    dispatch(setModalVisible(false));
     Alert.alert(
       "Success",
       `Field ${editingField ? "updated" : "added"} successfully!`
     );
   };
 
-  const handleEditField = (field) => {
-    if (field.common) {
-      Alert.alert("Info", "Common fields cannot be edited.");
-      return;
-    }
-    setEditingField(field);
-    setNewField({
-      name: field.label,
-      label: field.label,
-      type: field.type,
-    });
-    setModalVisible(true);
-  };
-
   const handleDeleteField = (fieldKey) => {
-    const field = vendorFields.find((f) => f.key === fieldKey);
+    const field = currentVendorFields.find((f) => f.key === fieldKey);
     if (field?.common) {
       Alert.alert("Info", "Common fields cannot be deleted.");
       return;
@@ -171,186 +104,26 @@ export default function FieldsScreen({ route, navigation }) {
         text: "Delete",
         style: "destructive",
         onPress: () => {
-          const updatedFields = vendorFields.filter(
-            (field) => field.key !== fieldKey
-          );
-          saveVendorFields(updatedFields);
+          dispatch(deleteField(fieldKey));
         },
       },
     ]);
   };
 
-  const toggleFieldEnabled = (fieldKey) => {
-    const field = vendorFields.find((f) => f.key === fieldKey);
-    if (field?.common) {
-      Alert.alert("Info", "Common fields cannot be disabled.");
-      return;
-    }
-
-    const updatedFields = vendorFields.map((field) =>
-      field.key === fieldKey ? { ...field, enabled: !field.enabled } : field
-    );
-    saveVendorFields(updatedFields);
-  };
-
-  const resetForm = () => {
-    setNewField({
-      name: "",
-      label: "",
-      type: "text",
-    });
-    setEditingField(null);
-    setModalVisible(false);
-  };
-
-  const getTypeColor = (type) => {
-    const typeConfig = fieldTypes.find((t) => t.value === type);
-    return typeConfig ? typeConfig.color : "#6B7280";
-  };
-
-  const getStats = () => {
-    const totalFields = vendorFields.length;
-    const activeFields = vendorFields.filter((f) => f.enabled).length;
-    const customFields = vendorFields.filter((f) => f.custom).length;
-    return { totalFields, activeFields, customFields };
+  const stats = {
+    totalFields: currentVendorFields.length,
+    activeFields: currentVendorFields.filter((f) => f.enabled).length,
+    customFields: currentVendorFields.filter((f) => f.custom).length,
   };
 
   const renderFieldItem = ({ item, index }) => (
-    <View
-      style={[
-        styles.fieldCard,
-        item.common && styles.commonFieldCard,
-        !item.enabled && styles.disabledFieldCard,
-      ]}
-    >
-      <View style={styles.fieldCardContent}>
-        <View style={styles.fieldIconContainer}>
-          <Ionicons
-            name={fieldTypes.find((t) => t.value === item.type)?.icon || "help"}
-            size={20}
-            color={getTypeColor(item.type)}
-          />
-        </View>
-
-        <View style={styles.fieldInfo}>
-          <View style={styles.fieldHeader}>
-            <Text
-              style={[styles.fieldLabel, !item.enabled && styles.disabledText]}
-            >
-              {item.label}
-            </Text>
-            <View style={styles.fieldBadges}>
-              {item.custom && (
-                <View style={styles.customBadge}>
-                  <Text style={styles.customBadgeText}>Custom</Text>
-                </View>
-              )}
-              {item.common && (
-                <View style={styles.commonBadge}>
-                  <Text style={styles.commonBadgeText}>System</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.fieldDetails}>
-            <Text style={styles.fieldKey}>@{item.key}</Text>
-            <View style={styles.statsContainer}>
-              <View
-                style={[
-                  styles.typeBadge,
-                  { backgroundColor: getTypeColor(item.type) + "15" },
-                ]}
-              >
-                <Text
-                  style={[styles.typeText, { color: getTypeColor(item.type) }]}
-                >
-                  {item.type}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.statusToggle,
-                  item.enabled ? styles.statusEnabled : styles.statusDisabled,
-                ]}
-                onPress={() => toggleFieldEnabled(item.key)}
-                disabled={item.common}
-              >
-                <View
-                  style={[
-                    styles.statusDot,
-                    item.enabled
-                      ? styles.statusDotEnabled
-                      : styles.statusDotDisabled,
-                  ]}
-                />
-                <Text style={styles.statusText}>
-                  {item.enabled ? "Active" : "Inactive"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {item.custom && (
-        <View style={styles.fieldActions}>
-          <TouchableOpacity
-            onPress={() => handleEditField(item)}
-            style={styles.editButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={16} color="#3B82F6" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleDeleteField(item.key)}
-            style={styles.deleteButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="trash-outline" size={16} color="#EF4444" />
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+    <FieldCard item={item} index={index} onDelete={handleDeleteField} />
   );
-
-  const renderFieldTypeOption = (type) => (
-    <TouchableOpacity
-      key={type.value}
-      style={[
-        styles.typeOption,
-        newField.type === type.value && styles.typeOptionSelected,
-      ]}
-      onPress={() => setNewField({ ...newField, type: type.value })}
-      activeOpacity={0.7}
-    >
-      <View
-        style={[styles.typeOptionIcon, { backgroundColor: type.color + "20" }]}
-      >
-        <Ionicons
-          name={type.icon}
-          size={20}
-          color={newField.type === type.value ? "white" : type.color}
-        />
-      </View>
-      <Text
-        style={[
-          styles.typeOptionText,
-          newField.type === type.value && styles.typeOptionTextSelected,
-        ]}
-      >
-        {type.label}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const stats = getStats();
 
   return (
     <View style={styles.container}>
-      {/* Enhanced Header */}
-      <View style={styles.header}>
+      {/* Header */}
+      {/* <View style={styles.header}>
         <View style={styles.headerBackground} />
         <View style={styles.headerContent}>
           <TouchableOpacity
@@ -364,18 +137,10 @@ export default function FieldsScreen({ route, navigation }) {
             <Text style={styles.title}>{vendor.name}</Text>
             <Text style={styles.subtitle}>Field configuration</Text>
           </View>
-          {/* Small Add Button in Right Corner */}
-          <TouchableOpacity
-            style={styles.smallAddButton}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={20} color="white" />
-          </TouchableOpacity>
         </View>
-      </View>
+      </View> */}
 
-      {/* Enhanced Stats Cards */}
+      {/* Stats Cards */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: "#EEF2FF" }]}>
@@ -409,9 +174,9 @@ export default function FieldsScreen({ route, navigation }) {
           </Text>
         </View>
 
-        {vendorFields.length > 0 ? (
+        {currentVendorFields.length > 0 ? (
           <FlatList
-            data={vendorFields}
+            data={currentVendorFields}
             renderItem={renderFieldItem}
             keyExtractor={(item) => item.key}
             showsVerticalScrollIndicator={false}
@@ -426,176 +191,33 @@ export default function FieldsScreen({ route, navigation }) {
             <Text style={styles.emptyDescription}>
               Add custom fields to enhance your vendor data collection
             </Text>
-            <TouchableOpacity
-              style={styles.emptyStateButton}
-              onPress={() => setModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.emptyStateButtonText}>
-                Create First Field
-              </Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Enhanced Create/Edit Field Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
+      {/* Bottom Create Button */}
+      <View style={styles.bottomButtonContainer}>
+        <TouchableOpacity
+          style={styles.bottomCreateButton}
+          onPress={() => dispatch(setModalVisible(true))}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={24} color="white" />
+          <Text style={styles.bottomCreateButtonText}>Create New Field</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Field Modal */}
+      <FieldModal
         visible={modalVisible}
-        onRequestClose={resetForm}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalIcon}>
-                <Ionicons
-                  name={editingField ? "create" : "add"}
-                  size={24}
-                  color="#4F46E5"
-                />
-              </View>
-              <View style={styles.modalTitleContainer}>
-                <Text style={styles.modalTitle}>
-                  {editingField ? "Edit Field" : "Add New Field"}
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  {editingField
-                    ? "Update field configuration"
-                    : "Create a new custom field"}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={resetForm}
-                style={styles.closeButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.modalBody}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Field Name</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Discount Percentage"
-                  placeholderTextColor="#9CA3AF"
-                  value={newField.name}
-                  onChangeText={(text) =>
-                    setNewField({ ...newField, name: text })
-                  }
-                />
-                <View style={styles.helperContainer}>
-                  <Ionicons
-                    name="information-circle"
-                    size={14}
-                    color="#6B7280"
-                  />
-                  <Text style={styles.helperText}>
-                    Internal name used for data storage
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Display Label</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Discount %"
-                  placeholderTextColor="#9CA3AF"
-                  value={newField.label}
-                  onChangeText={(text) =>
-                    setNewField({ ...newField, label: text })
-                  }
-                />
-                <View style={styles.helperContainer}>
-                  <Ionicons
-                    name="information-circle"
-                    size={14}
-                    color="#6B7280"
-                  />
-                  <Text style={styles.helperText}>
-                    Label shown to users in the app
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Field Type</Text>
-                <View style={styles.typeGrid}>
-                  {fieldTypes.map(renderFieldTypeOption)}
-                </View>
-              </View>
-
-              <View style={styles.previewSection}>
-                <Text style={styles.previewLabel}>Field Preview</Text>
-                <View style={styles.previewCard}>
-                  <View style={styles.previewHeader}>
-                    <Text style={styles.previewLabelText}>
-                      {newField.label || "Field Label"}
-                    </Text>
-                    <View
-                      style={[
-                        styles.previewTypeBadge,
-                        { backgroundColor: getTypeColor(newField.type) + "20" },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.previewTypeText,
-                          { color: getTypeColor(newField.type) },
-                        ]}
-                      >
-                        {newField.type}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.previewValueContainer}>
-                    <Text style={styles.previewValue}>
-                      {newField.type === "text" && "Sample text input"}
-                      {newField.type === "number" && "123.45"}
-                      {newField.type === "amount" && "$1,000.00"}
-                      {newField.type === "date" && "Dec 15, 2023"}
-                      {newField.type === "category" && "Office Supplies"}
-                      {newField.type === "boolean" && "Yes"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={16} color="#6B7280" />
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={resetForm}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSaveField}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="checkmark" size={20} color="white" />
-                <Text style={styles.saveButtonText}>
-                  {editingField ? "Update Field" : "Create Field"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onSave={handleSaveField}
+        editingField={editingField}
+      />
     </View>
   );
-}
+};
+
+export default FieldsScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -652,25 +274,42 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontWeight: "500",
   },
-  // Small Add Button in Right Corner
-  smallAddButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "#4F46E5",
-    justifyContent: "center",
+  // Bottom Create Button
+  bottomButtonContainer: {
+    position: "absolute",
+    bottom: 100,
+    left: 0,
+    right: 0,
+    padding: 20,
+    backgroundColor: "transparent",
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  bottomCreateButton: {
+    flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#4F46E5",
+    justifyContent: "center",
+    backgroundColor: "#6366F1",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+    shadowColor: "#6366F1",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  bottomCreateButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
   },
   statsContainer: {
     flexDirection: "row",
     padding: 20,
     gap: 12,
-    marginTop: 8,
+    marginTop: 18,
   },
   statCard: {
     flex: 1,
@@ -708,6 +347,7 @@ const styles = StyleSheet.create({
   fieldsContainer: {
     flex: 1,
     padding: 20,
+    // paddingBottom: 100, // Add padding to accommodate bottom button
   },
   sectionHeader: {
     marginBottom: 20,
@@ -726,7 +366,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingBottom: 20,
   },
-  // Compact Field Cards (similar to vendor cards)
+  // ... (rest of the styles remain the same)
   fieldCard: {
     backgroundColor: "white",
     borderRadius: 16,
@@ -741,7 +381,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 80, // Similar to vendor card height
+    minHeight: 80,
   },
   commonFieldCard: {
     borderLeftWidth: 4,
@@ -913,25 +553,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 32,
-  },
-  emptyStateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#4F46E5",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 16,
-    gap: 8,
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  emptyStateButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

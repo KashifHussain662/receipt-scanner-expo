@@ -1,12 +1,15 @@
 import React from "react";
 import { View } from "react-native";
+import { Provider } from 'react-redux';
+import { store } from '../store';
 import AuthStack from "./Navigation/AuthStack";
 
 export default function Index() {
-  // console.log("Firebase App: ", auth);
   return (
-    <View style={{ flex: 1 }}>
-      <AuthStack />
-    </View>
+    <Provider store={store}>
+      <View style={{ flex: 1 }}>
+        <AuthStack />
+      </View>
+    </Provider>
   );
 }
