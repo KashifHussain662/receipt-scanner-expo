@@ -48,7 +48,7 @@
           "photosPermission": "The app accesses your photos to let you select receipt images."
         }
       ],
-      "expo-router"
+      "expo-web-browser"
     ]
   }
 }
