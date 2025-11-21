@@ -6,19 +6,30 @@ import AuthStack from "./app/Navigation/AuthStack";
 import { store } from "./store";
 
 // Firebase imports
-import { ref, set } from "firebase/database";
-import { db } from "./firebaseConfig";
+import { get, ref, set } from "firebase/database";
+import { database } from "./firebaseConfig";
 
 export default function App() {
-  useEffect(() => {
-    // Test write to Firebase Realtime Database
-    set(ref(db, "test/path"), {
-      message: "Hello Firebase!",
-      time: Date.now(),
-    })
-      .then(() => console.log("Write successful"))
-      .catch((error) => console.error("Write failed:", error));
-  }, []);
+  // Firebase connection test
+   useEffect(() => {
+     const testFirebaseConnection = async () => {
+       try {
+         const testRef = ref(database, "connection_test");
+         await set(testRef, {
+           timestamp: Date.now(),
+           message: "Testing Firebase connection",
+         });
+         console.log("Firebase connection successful! Data written.");
+ 
+         const snapshot = await get(testRef);
+         console.log("Data retrieved:", snapshot.val());
+       } catch (error) {
+         console.error("Firebase connection failed:", error);
+       }
+     };
+ 
+     testFirebaseConnection();
+   }, []);
 
   return (
     <Provider store={store}>
