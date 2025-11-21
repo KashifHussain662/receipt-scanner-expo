@@ -3,90 +3,28 @@ import { createSlice } from "@reduxjs/toolkit";
 const vendorsSlice = createSlice({
   name: "vendors",
   initialState: {
-    vendors: [
-      {
-        id: "1",
-        name: "General",
-        fields: [
-          {
-            key: "vendor_name",
-            label: "Vendor Name",
-            type: "text",
-            enabled: true,
-            common: true,
-          },
-          {
-            key: "total_amount",
-            label: "Total Amount",
-            type: "amount",
-            enabled: true,
-            common: true,
-          },
-          {
-            key: "tax",
-            label: "Tax Amount",
-            type: "amount",
-            enabled: true,
-            common: true,
-          },
-          {
-            key: "date",
-            label: "Purchase Date",
-            type: "date",
-            enabled: true,
-            common: true,
-          },
-          {
-            key: "category",
-            label: "Category",
-            type: "category",
-            enabled: true,
-            common: true,
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    loading: false,
-    error: null,
+    vendors: [],
   },
   reducers: {
+    setVendors: (state, action) => {
+      state.vendors = action.payload;
+    },
     addVendor: (state, action) => {
       state.vendors.push(action.payload);
     },
-    updateVendor: (state, action) => {
-      const { id, updates } = action.payload;
-      const vendorIndex = state.vendors.findIndex((vendor) => vendor.id === id);
-      if (vendorIndex !== -1) {
-        state.vendors[vendorIndex] = {
-          ...state.vendors[vendorIndex],
-          ...updates,
-        };
-      }
-    },
     deleteVendor: (state, action) => {
-      const vendorId = action.payload;
-      state.vendors = state.vendors.filter((vendor) => vendor.id !== vendorId);
+      state.vendors = state.vendors.filter((v) => v.id !== action.payload);
     },
-    setLoading: (state, action) => {
-      state.loading = action.payload;
-    },
-    setError: (state, action) => {
-      state.error = action.payload;
-    },
-    clearError: (state) => {
-      state.error = null;
+    updateVendor: (state, action) => {
+      const { id, fields } = action.payload;
+      const vendor = state.vendors.find((v) => v.id === id);
+      if (vendor) {
+        vendor.fields = fields;
+      }
     },
   },
 });
 
-export const {
-  addVendor,
-  updateVendor,
-  deleteVendor,
-  setLoading,
-  setError,
-  clearError,
-} = vendorsSlice.actions;
-
+export const { setVendors, addVendor, deleteVendor, updateVendor } =
+  vendorsSlice.actions;
 export default vendorsSlice.reducer;

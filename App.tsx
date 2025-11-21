@@ -9,6 +9,8 @@ import { store } from "./store";
 import { get, ref, set } from "firebase/database";
 import { database } from "./firebaseConfig";
 
+
+
 export default function App() {
   // Firebase connection test
    useEffect(() => {
@@ -30,6 +32,19 @@ export default function App() {
  
      testFirebaseConnection();
    }, []);
+
+  //    useEffect(() => {
+  //   // App start hote hi Firebase se vendors fetch karein
+  //   const loadVendorsFromFirebase = async () => {
+  //     const vendors = await firebaseService.fetchVendorsFromFirebase();
+  //     if (vendors.length > 0) {
+  //       store.dispatch(setVendors(vendors));
+  //     }
+  //   };
+    
+  //   loadVendorsFromFirebase();
+  // }, []);
+
 
   return (
     <Provider store={store}>

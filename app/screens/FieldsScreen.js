@@ -1,764 +1,451 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   FlatList,
+  Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  addField,
-  deleteField,
-  setCurrentVendorFields,
-  setModalVisible,
-  updateField,
-} from "../../store/fieldsSlice";
-import FieldCard from "../components/FieldCard";
-import FieldModal from "../components/FieldModal";
+import { firebaseService } from "../../services/firebaseService";
+import { updateVendor } from "../../store/vendorsSlice";
 
 const FieldsScreen = ({ route, navigation }) => {
   const { vendor } = route.params;
   const dispatch = useDispatch();
-  const { currentVendorFields, modalVisible, editingField, newField } =
-    useSelector((state) => state.fields);
   const { vendors } = useSelector((state) => state.vendors);
 
-  useEffect(() => {
-    // Load vendor fields from Redux store
-    const currentVendor = vendors.find((v) => v.id === vendor.id);
-    if (currentVendor) {
-      dispatch(setCurrentVendorFields(currentVendor.fields));
-    }
-  }, [vendor, vendors]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [fieldName, setFieldName] = useState("");
+  const [fieldType, setFieldType] = useState("text");
+  const [defaultValue, setDefaultValue] = useState("");
 
-  const generateFieldKey = (fieldName) => {
-    return fieldName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_|_$/g, "");
-  };
+  const currentVendor = vendors.find((v) => v.id === vendor.id);
+  const fields = currentVendor?.fields || [];
 
-  const validateField = () => {
-    if (!newField.name.trim()) {
+  const createField = async () => {
+    if (!fieldName.trim()) {
       Alert.alert("Error", "Please enter field name");
-      return false;
-    }
-    if (!newField.label.trim()) {
-      Alert.alert("Error", "Please enter display label");
-      return false;
-    }
-
-    const fieldKey = generateFieldKey(newField.name);
-
-    const existingField = currentVendorFields.find(
-      (field) => field.key === fieldKey && field.key !== editingField?.key
-    );
-    if (existingField) {
-      Alert.alert("Error", "Field with this name already exists");
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleSaveField = () => {
-    if (!validateField()) return;
-
-    const fieldKey = generateFieldKey(newField.name);
-    const fieldData = {
-      key: fieldKey,
-      label: newField.label.trim(),
-      type: newField.type,
-      enabled: true,
-      custom: true,
-      common: false,
-    };
-
-    if (editingField) {
-      dispatch(updateField({ fieldKey: editingField.key, updates: fieldData }));
-    } else {
-      dispatch(addField(fieldData));
-    }
-
-    dispatch(setModalVisible(false));
-    Alert.alert(
-      "Success",
-      `Field ${editingField ? "updated" : "added"} successfully!`
-    );
-  };
-
-  const handleDeleteField = (fieldKey) => {
-    const field = currentVendorFields.find((f) => f.key === fieldKey);
-    if (field?.common) {
-      Alert.alert("Info", "Common fields cannot be deleted.");
       return;
     }
 
-    Alert.alert("Delete Field", "Are you sure you want to delete this field?", [
-      { text: "Cancel", style: "cancel" },
+    const fieldKey = fieldName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+
+    // Check if field already exists
+    if (fields.some((f) => f.key === fieldKey)) {
+      Alert.alert("Error", "Field already exists");
+      return;
+    }
+
+    const newField = {
+      key: fieldKey,
+      label: fieldName.trim(),
+      type: fieldType,
+      defaultValue: defaultValue.trim(), // Default value add kiya
+      enabled: true,
+    };
+
+    const updatedFields = [...fields, newField];
+
+    // Redux update
+    dispatch(
+      updateVendor({
+        id: vendor.id,
+        fields: updatedFields,
+      })
+    );
+
+    // Firebase update
+    const updatedVendor = { ...currentVendor, fields: updatedFields };
+    await firebaseService.saveVendor(updatedVendor);
+
+    setFieldName("");
+    setDefaultValue("");
+    setModalVisible(false);
+    Alert.alert("Success", "Field created!");
+  };
+
+  const deleteField = async (fieldKey) => {
+    Alert.alert("Delete Field", "Are you sure?", [
+      { text: "Cancel" },
       {
         text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          dispatch(deleteField(fieldKey));
+        onPress: async () => {
+          const updatedFields = fields.filter((f) => f.key !== fieldKey);
+
+          // Redux update
+          dispatch(
+            updateVendor({
+              id: vendor.id,
+              fields: updatedFields,
+            })
+          );
+
+          // Firebase update
+          const updatedVendor = { ...currentVendor, fields: updatedFields };
+          await firebaseService.saveVendor(updatedVendor);
+
+          Alert.alert("Success", "Field deleted!");
         },
       },
     ]);
   };
 
-  const stats = {
-    totalFields: currentVendorFields.length,
-    activeFields: currentVendorFields.filter((f) => f.enabled).length,
-    customFields: currentVendorFields.filter((f) => f.custom).length,
+  const toggleField = async (fieldKey) => {
+    const updatedFields = fields.map((f) =>
+      f.key === fieldKey ? { ...f, enabled: !f.enabled } : f
+    );
+
+    // Redux update
+    dispatch(
+      updateVendor({
+        id: vendor.id,
+        fields: updatedFields,
+      })
+    );
+
+    // Firebase update
+    const updatedVendor = { ...currentVendor, fields: updatedFields };
+    await firebaseService.saveVendor(updatedVendor);
   };
 
-  const renderFieldItem = ({ item, index }) => (
-    <FieldCard item={item} index={index} onDelete={handleDeleteField} />
+  const renderField = ({ item }) => (
+    <View style={styles.fieldCard}>
+      <View style={styles.fieldInfo}>
+        <Text style={styles.fieldName}>{item.label}</Text>
+        <Text style={styles.fieldKey}>{item.key}</Text>
+        <Text style={styles.fieldType}>Type: {item.type}</Text>
+        {item.defaultValue && (
+          <Text style={styles.defaultValue}>Default: {item.defaultValue}</Text>
+        )}
+      </View>
+
+      <View style={styles.fieldActions}>
+        <TouchableOpacity onPress={() => toggleField(item.key)}>
+          <Ionicons
+            name={item.enabled ? "eye" : "eye-off"}
+            size={20}
+            color={item.enabled ? "green" : "red"}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => deleteField(item.key)}>
+          <Ionicons name="trash" size={20} color="red" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      {/* <View style={styles.header}>
-        <View style={styles.headerBackground} />
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color="#6B7280" />
-          </TouchableOpacity>
-          <View style={styles.headerText}>
-            <Text style={styles.title}>{vendor.name}</Text>
-            <Text style={styles.subtitle}>Field configuration</Text>
-          </View>
-        </View>
-      </View> */}
+      {/* Vendor Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.vendorName}>{vendor.name}</Text>
+        <View style={{ width: 24 }} />
+      </View>
 
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: "#EEF2FF" }]}>
-            <Ionicons name="list" size={20} color="#4F46E5" />
-          </View>
-          <Text style={styles.statNumber}>{stats.totalFields}</Text>
+      {/* Stats */}
+      <View style={styles.stats}>
+        <View style={styles.stat}>
+          <Text style={styles.statNumber}>{fields.length}</Text>
           <Text style={styles.statLabel}>Total Fields</Text>
         </View>
-        <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: "#F0FDF4" }]}>
-            <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
-          </View>
-          <Text style={styles.statNumber}>{stats.activeFields}</Text>
-          <Text style={styles.statLabel}>Active</Text>
-        </View>
-        <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: "#FAF5FF" }]}>
-            <Ionicons name="add-circle" size={20} color="#8B5CF6" />
-          </View>
-          <Text style={styles.statNumber}>{stats.customFields}</Text>
-          <Text style={styles.statLabel}>Custom</Text>
+        <View style={styles.stat}>
+          <Text style={styles.statNumber}>
+            {fields.filter((f) => f.enabled).length}
+          </Text>
+          <Text style={styles.statLabel}>Active Fields</Text>
         </View>
       </View>
 
       {/* Fields List */}
-      <View style={styles.fieldsContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Field Configuration</Text>
-          <Text style={styles.sectionSubtitle}>
-            Manage field types, visibility, and settings
-          </Text>
-        </View>
+      <View style={styles.listContainer}>
+        <Text style={styles.title}>Fields</Text>
 
-        {currentVendorFields.length > 0 ? (
+        {fields.length > 0 ? (
           <FlatList
-            data={currentVendorFields}
-            renderItem={renderFieldItem}
+            data={fields}
+            renderItem={renderField}
             keyExtractor={(item) => item.key}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.fieldsList}
           />
         ) : (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIllustration}>
-              <Ionicons name="grid-outline" size={80} color="#E5E7EB" />
-            </View>
-            <Text style={styles.emptyTitle}>No fields configured</Text>
-            <Text style={styles.emptyDescription}>
-              Add custom fields to enhance your vendor data collection
-            </Text>
+          <View style={styles.empty}>
+            <Ionicons name="list-outline" size={60} color="#ccc" />
+            <Text style={styles.emptyText}>No fields yet</Text>
+            <Text style={styles.emptySubtext}>Add your first field</Text>
           </View>
         )}
       </View>
 
-      {/* Bottom Create Button */}
-      <View style={styles.bottomButtonContainer}>
-        <TouchableOpacity
-          style={styles.bottomCreateButton}
-          onPress={() => dispatch(setModalVisible(true))}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={24} color="white" />
-          <Text style={styles.bottomCreateButtonText}>Create New Field</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Create Button */}
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={() => setModalVisible(true)}
+      >
+        <Ionicons name="add" size={24} color="white" />
+        <Text style={styles.createButtonText}>Create Field</Text>
+      </TouchableOpacity>
 
-      {/* Field Modal */}
-      <FieldModal
-        visible={modalVisible}
-        onSave={handleSaveField}
-        editingField={editingField}
-      />
+      {/* Create Modal */}
+      <Modal visible={modalVisible} transparent animationType="fade">
+        <View style={styles.modal}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Create Field</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Field name"
+              value={fieldName}
+              onChangeText={setFieldName}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Default value (optional)"
+              value={defaultValue}
+              onChangeText={setDefaultValue}
+            />
+
+            <Text style={styles.label}>Field Type</Text>
+            <View style={styles.typeButtons}>
+              {["text", "number", "date", "amount"].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.typeButton,
+                    fieldType === type && styles.typeButtonActive,
+                  ]}
+                  onPress={() => setFieldType(type)}
+                >
+                  <Text
+                    style={[
+                      styles.typeText,
+                      fieldType === type && styles.typeTextActive,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.button, styles.createButton]}
+                onPress={createField}
+              >
+                <Text style={styles.createText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-export default FieldsScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#f5f5f5",
+    padding: 20,
   },
   header: {
-    backgroundColor: "white",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-    overflow: "hidden",
-  },
-  headerBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: "#4F46E5",
-    opacity: 0.02,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 24,
-    paddingTop: 60,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 4,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  // Bottom Create Button
-  bottomButtonContainer: {
-    position: "absolute",
-    bottom: 100,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: "transparent",
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-  },
-  bottomCreateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#6366F1",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-    shadowColor: "#6366F1",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  bottomCreateButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    padding: 20,
-    gap: 12,
-    marginTop: 18,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "white",
-    padding: 20,
-    borderRadius: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "600",
-  },
-  fieldsContainer: {
-    flex: 1,
-    padding: 20,
-    // paddingBottom: 100, // Add padding to accommodate bottom button
-  },
-  sectionHeader: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  fieldsList: {
-    gap: 12,
-    paddingBottom: 20,
-  },
-  // ... (rest of the styles remain the same)
-  fieldCard: {
-    backgroundColor: "white",
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 80,
+    marginBottom: 20,
   },
-  commonFieldCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#059669",
+  vendorName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
   },
-  disabledFieldCard: {
-    opacity: 0.6,
-  },
-  fieldCardContent: {
+  stats: {
     flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 12,
+    justifyContent: "space-around",
+    marginBottom: 20,
   },
-  fieldIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#F8FAFC",
-    justifyContent: "center",
+  stat: {
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
+    backgroundColor: "white",
+    padding: 15,
+    borderRadius: 10,
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  statLabel: {
+    color: "#666",
+    marginTop: 5,
+  },
+  listContainer: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: "#333",
+  },
+  fieldCard: {
+    backgroundColor: "white",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   fieldInfo: {
     flex: 1,
   },
-  fieldHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 6,
-  },
-  fieldLabel: {
+  fieldName: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-    flex: 1,
+    fontWeight: "bold",
+    color: "#333",
   },
   fieldKey: {
-    fontSize: 11,
-    color: "#6B7280",
-    fontFamily: "monospace",
-    fontWeight: "500",
-    marginBottom: 6,
+    color: "#666",
+    fontSize: 12,
+    marginTop: 2,
   },
-  fieldBadges: {
-    flexDirection: "row",
-    gap: 4,
+  fieldType: {
+    color: "#666",
+    marginTop: 5,
   },
-  customBadge: {
-    backgroundColor: "#FAF5FF",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  customBadgeText: {
-    fontSize: 9,
-    color: "#8B5CF6",
-    fontWeight: "700",
-  },
-  commonBadge: {
-    backgroundColor: "#F0FDF4",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  commonBadgeText: {
-    fontSize: 9,
-    color: "#059669",
-    fontWeight: "700",
-  },
-  fieldDetails: {
-    // No specific styles needed, using flex
-  },
-  statsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  typeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
-  statusToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
-  },
-  statusEnabled: {
-    backgroundColor: "#F0FDF4",
-  },
-  statusDisabled: {
-    backgroundColor: "#FEF2F2",
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusDotEnabled: {
-    backgroundColor: "#10B981",
-  },
-  statusDotDisabled: {
-    backgroundColor: "#EF4444",
-  },
-  statusText: {
-    fontSize: 11,
-    color: "#374151",
-    fontWeight: "600",
+  defaultValue: {
+    color: "#888",
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: "italic",
   },
   fieldActions: {
     flexDirection: "row",
-    gap: 8,
+    gap: 15,
   },
-  editButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "#EFF6FF",
-    justifyContent: "center",
+  empty: {
     alignItems: "center",
-  },
-  deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "#FEF2F2",
     justifyContent: "center",
-    alignItems: "center",
-  },
-  disabledText: {
-    color: "#9CA3AF",
-  },
-  emptyState: {
     flex: 1,
-    justifyContent: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 10,
+  },
+  emptySubtext: {
+    color: "#999",
+    marginTop: 5,
+  },
+  createButton: {
+    backgroundColor: "#6366F1",
+    flexDirection: "row",
     alignItems: "center",
-    padding: 40,
-  },
-  emptyIllustration: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "#F8FAFC",
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
-    textAlign: "center",
+  createButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    marginLeft: 5,
   },
-  emptyDescription: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 32,
-  },
-  modalOverlay: {
+  modal: {
     flex: 1,
-    justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.5)",
-    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     backgroundColor: "white",
-    borderRadius: 24,
-    maxHeight: "90%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 12,
-    overflow: "hidden",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-    gap: 12,
-  },
-  modalIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#EEF2FF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalTitleContainer: {
-    flex: 1,
+    padding: 20,
+    borderRadius: 10,
+    width: "80%",
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  closeButton: {
-    padding: 4,
-    borderRadius: 8,
-  },
-  modalBody: {
-    maxHeight: 400,
-  },
-  inputGroup: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#374151",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: "#F9FAFB",
-    color: "#111827",
+    borderColor: "#ddd",
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 10,
   },
-  helperContainer: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    marginTop: 8,
+  label: {
+    fontWeight: "bold",
+    marginBottom: 5,
+    color: "#333",
   },
-  helperText: {
-    fontSize: 12,
-    color: "#6B7280",
-    flex: 1,
-    lineHeight: 16,
-  },
-  typeGrid: {
+  typeButtons: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    marginBottom: 15,
   },
-  typeOption: {
-    width: "30%",
-    aspectRatio: 1,
-    backgroundColor: "white",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "#F3F4F6",
-    justifyContent: "center",
+  typeButton: {
+    padding: 8,
+    borderRadius: 5,
+    backgroundColor: "#f0f0f0",
+    margin: 2,
+    flex: 1,
+    minWidth: "23%",
     alignItems: "center",
-    padding: 12,
   },
-  typeOptionSelected: {
-    backgroundColor: "#4F46E5",
-    borderColor: "#4F46E5",
+  typeButtonActive: {
+    backgroundColor: "#6366F1",
   },
-  typeOptionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  typeOptionText: {
+  typeText: {
+    color: "#666",
     fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "600",
-    textAlign: "center",
   },
-  typeOptionTextSelected: {
+  typeTextActive: {
     color: "white",
   },
-  previewSection: {
-    padding: 24,
-  },
-  previewLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-    color: "#374151",
-  },
-  previewCard: {
-    backgroundColor: "#F8FAFC",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  previewHeader: {
+  modalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
   },
-  previewLabelText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  previewTypeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  previewTypeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  previewValueContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  previewValue: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  modalActions: {
-    flexDirection: "row",
-    padding: 24,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-  },
-  modalButton: {
+  button: {
+    padding: 10,
+    borderRadius: 5,
     flex: 1,
-    padding: 16,
-    borderRadius: 12,
     alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
+    marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#f0f0f0",
   },
-  saveButton: {
-    backgroundColor: "#4F46E5",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+  cancelText: {
+    color: "#666",
   },
-  cancelButtonText: {
-    color: "#374151",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  saveButtonText: {
+  createText: {
     color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
   },
 });
+
+export default FieldsScreen;

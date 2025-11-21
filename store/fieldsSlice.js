@@ -34,14 +34,21 @@ const fieldsSlice = createSlice({
       type: "text",
     },
     modalVisible: false,
+    currentVendorId: null,
   },
   reducers: {
+    setCurrentVendor: (state, action) => {
+      state.currentVendorId = action.payload;
+    },
+
     setCurrentVendorFields: (state, action) => {
       state.currentVendorFields = action.payload;
     },
+
     addField: (state, action) => {
       state.currentVendorFields.push(action.payload);
     },
+
     updateField: (state, action) => {
       const { fieldKey, updates } = action.payload;
       const fieldIndex = state.currentVendorFields.findIndex(
@@ -54,12 +61,14 @@ const fieldsSlice = createSlice({
         };
       }
     },
+
     deleteField: (state, action) => {
       const fieldKey = action.payload;
       state.currentVendorFields = state.currentVendorFields.filter(
         (field) => field.key !== fieldKey
       );
     },
+
     toggleFieldEnabled: (state, action) => {
       const fieldKey = action.payload;
       const fieldIndex = state.currentVendorFields.findIndex(
@@ -70,12 +79,15 @@ const fieldsSlice = createSlice({
           !state.currentVendorFields[fieldIndex].enabled;
       }
     },
+
     setEditingField: (state, action) => {
       state.editingField = action.payload;
     },
+
     setNewField: (state, action) => {
       state.newField = { ...state.newField, ...action.payload };
     },
+
     resetNewField: (state) => {
       state.newField = {
         name: "",
@@ -84,6 +96,7 @@ const fieldsSlice = createSlice({
       };
       state.editingField = null;
     },
+
     setModalVisible: (state, action) => {
       state.modalVisible = action.payload;
     },
@@ -91,6 +104,7 @@ const fieldsSlice = createSlice({
 });
 
 export const {
+  setCurrentVendor,
   setCurrentVendorFields,
   addField,
   updateField,

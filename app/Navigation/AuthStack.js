@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { database } from "../../firebaseConfig";
 import CameraScreen from "../components/CameraScreen";
 import FieldsScreen from "../screens/FieldsScreen";
+import VendorDataScreen from "../screens/VendorDataScreen";
 import AppTabs from "./AppTabs";
 
 const Stack = createStackNavigator();
@@ -52,6 +53,12 @@ const AuthStack = () => {
         //   headerShown: false,
         //   presentation: "modal",
         // }}
+      />
+
+      <Stack.Screen
+        name="VendorDataScreen"
+        component={VendorDataScreen}
+        options={{ title: "Vendor Data" }}
       />
     </Stack.Navigator>
   );

@@ -11,120 +11,99 @@ import {
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
+import { firebaseService } from "../../services/firebaseService";
 import { addVendor, deleteVendor } from "../../store/vendorsSlice";
 import VendorCard from "../components/VendorCard";
 
 const CustomFieldsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { vendors } = useSelector((state) => state.vendors);
-  const [vendorModalVisible, setVendorModalVisible] = useState(false);
-  const [newVendorName, setNewVendorName] = useState("");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [vendorName, setVendorName] = useState("");
 
-  const addNewVendor = () => {
-    if (!newVendorName.trim()) {
+  const createVendor = async () => {
+    if (!vendorName.trim()) {
       Alert.alert("Error", "Please enter vendor name");
       return;
     }
 
-    const vendorExists = vendors.find(
-      (v) => v.name.toLowerCase() === newVendorName.trim().toLowerCase()
-    );
-    if (vendorExists) {
-      Alert.alert("Error", "Vendor with this name already exists");
+    // Check if vendor already exists
+    if (
+      vendors.some(
+        (v) => v.name.toLowerCase() === vendorName.trim().toLowerCase()
+      )
+    ) {
+      Alert.alert("Error", "Vendor already exists");
       return;
     }
 
     const newVendor = {
       id: Date.now().toString(),
-      name: newVendorName.trim(),
-      fields: [
-        {
-          key: "vendor_name",
-          label: "Vendor Name",
-          type: "text",
-          enabled: true,
-          common: true,
-        },
-        {
-          key: "total_amount",
-          label: "Total Amount",
-          type: "amount",
-          enabled: true,
-          common: true,
-        },
-        {
-          key: "tax",
-          label: "Tax Amount",
-          type: "amount",
-          enabled: true,
-          common: true,
-        },
-        {
-          key: "date",
-          label: "Purchase Date",
-          type: "date",
-          enabled: true,
-          common: true,
-        },
-        {
-          key: "category",
-          label: "Category",
-          type: "category",
-          enabled: true,
-          common: true,
-        },
-      ],
+      name: vendorName.trim(),
+      fields: [],
       createdAt: new Date().toISOString(),
     };
 
+    // Redux mein add karein
     dispatch(addVendor(newVendor));
-    setNewVendorName("");
-    setVendorModalVisible(false);
+
+    // Firebase mein save karein
+    await firebaseService.saveVendor(newVendor);
+
+    setVendorName("");
+    setModalVisible(false);
+    Alert.alert("Success", "Vendor created!");
   };
 
-  const handleDeleteVendor = (vendorId) => {
+  const removeVendor = async (vendorId) => {
     if (vendors.length <= 1) {
-      Alert.alert("Error", "You must have at least one vendor");
+      Alert.alert("Error", "At least one vendor required");
       return;
     }
 
     Alert.alert(
       "Delete Vendor",
-      "Are you sure you want to delete this vendor? All its custom fields will be lost.",
+      "Are you sure? All vendor data will be lost.",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Cancel" },
         {
           text: "Delete",
-          style: "destructive",
-          onPress: () => {
+          onPress: async () => {
             dispatch(deleteVendor(vendorId));
+            await firebaseService.deleteVendor(vendorId);
+            Alert.alert("Success", "Vendor deleted!");
           },
         },
       ]
     );
   };
 
-  const navigateToFields = (vendor) => {
+  const goToFields = (vendor) => {
     navigation.navigate("FieldsScreen", { vendor });
   };
 
-  const renderVendorItem = ({ item, index }) => (
+  const viewVendorData = (vendor) => {
+    navigation.navigate("VendorDataScreen", { vendor });
+  };
+
+  const renderVendor = ({ item }) => (
     <VendorCard
       vendor={item}
-      index={index}
-      onPress={() => navigateToFields(item)}
-      onLongPress={() => handleDeleteVendor(item.id)}
+      onPress={() => goToFields(item)}
+      onLongPress={() => removeVendor(item.id)}
+      onViewData={() => viewVendorData(item)}
     />
   );
 
+  // Statistics calculation
   const stats = {
     totalVendors: vendors.length,
-    activeFields: vendors.reduce(
-      (acc, vendor) => acc + vendor.fields.filter((f) => f.enabled).length,
+    totalFields: vendors.reduce(
+      (total, v) => total + (v.fields?.length || 0),
       0
     ),
-    customFields: vendors.reduce(
-      (acc, vendor) => acc + vendor.fields.filter((f) => f.custom).length,
+    activeFields: vendors.reduce(
+      (total, v) => total + (v.fields?.filter((f) => f.enabled)?.length || 0),
       0
     ),
   };
@@ -132,39 +111,42 @@ const CustomFieldsScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      {/* <View style={styles.header}>
-        <View style={styles.headerBackground} />
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.title}>Vendor Management</Text>
-            <Text style={styles.subtitle}>
-              Organize and customize vendor fields
-            </Text>
-          </View>
-        </View>
-      </View> */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Vendor Management</Text>
+        <Text style={styles.subtitle}>
+          Manage vendors and their custom fields
+        </Text>
+      </View>
 
-      {/* Stats Overview */}
-      <View style={styles.statsOverview}>
-        <View style={styles.statCard}>
-          <Ionicons name="business" size={24} color="#6366F1" />
+      {/* Stats */}
+      <View style={styles.stats}>
+        <View style={styles.stat}>
+          <View style={[styles.statIcon, { backgroundColor: "#EEF2FF" }]}>
+            <Ionicons name="business" size={20} color="#6366F1" />
+          </View>
           <Text style={styles.statNumber}>{stats.totalVendors}</Text>
-          <Text style={styles.statLabel}>Total Vendors</Text>
+          <Text style={styles.statLabel}>Vendors</Text>
         </View>
-        <View style={styles.statCard}>
-          <Ionicons name="list" size={24} color="#10B981" />
+
+        <View style={styles.stat}>
+          <View style={[styles.statIcon, { backgroundColor: "#F0FDF4" }]}>
+            <Ionicons name="list" size={20} color="#10B981" />
+          </View>
+          <Text style={styles.statNumber}>{stats.totalFields}</Text>
+          <Text style={styles.statLabel}>Total Fields</Text>
+        </View>
+
+        <View style={styles.stat}>
+          <View style={[styles.statIcon, { backgroundColor: "#FFFBEB" }]}>
+            <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
+          </View>
           <Text style={styles.statNumber}>{stats.activeFields}</Text>
           <Text style={styles.statLabel}>Active Fields</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Ionicons name="add-circle" size={24} color="#8B5CF6" />
-          <Text style={styles.statNumber}>{stats.customFields}</Text>
-          <Text style={styles.statLabel}>Custom Fields</Text>
         </View>
       </View>
 
       {/* Vendors List */}
-      <View style={styles.vendorsContainer}>
+      <View style={styles.listContainer}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Your Vendors</Text>
           <Text style={styles.sectionSubtitle}>
@@ -175,44 +157,37 @@ const CustomFieldsScreen = ({ navigation }) => {
         {vendors.length > 0 ? (
           <FlatList
             data={vendors}
-            renderItem={renderVendorItem}
+            renderItem={renderVendor}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.vendorsList}
+            contentContainerStyle={styles.listContent}
           />
         ) : (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIllustration}>
-              <Ionicons name="business-outline" size={80} color="#E5E7EB" />
+          <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="business-outline" size={60} color="#D1D5DB" />
             </View>
-            <Text style={styles.emptyTitle}>No vendors yet</Text>
-            <Text style={styles.emptyDescription}>
-              Create your first vendor to start managing custom fields and
-              streamline your workflow
+            <Text style={styles.emptyText}>No vendors yet</Text>
+            <Text style={styles.emptySubtext}>
+              Create your first vendor to start managing custom fields
             </Text>
           </View>
         )}
       </View>
 
-      {/* Bottom Create Button */}
-      <View style={styles.bottomButtonContainer}>
+      {/* Create Button */}
+      <View style={styles.bottomContainer}>
         <TouchableOpacity
-          style={styles.bottomCreateButton}
-          onPress={() => setVendorModalVisible(true)}
-          activeOpacity={0.8}
+          style={styles.createButton}
+          onPress={() => setModalVisible(true)}
         >
           <Ionicons name="add" size={24} color="white" />
-          <Text style={styles.bottomCreateButtonText}>Create New Vendor</Text>
+          <Text style={styles.createButtonText}>Create New Vendor</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Add Vendor Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={vendorModalVisible}
-        onRequestClose={() => setVendorModalVisible(false)}
-      >
+      {/* Create Modal */}
+      <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -226,9 +201,8 @@ const CustomFieldsScreen = ({ navigation }) => {
                 </Text>
               </View>
               <TouchableOpacity
-                onPress={() => setVendorModalVisible(false)}
+                onPress={() => setModalVisible(false)}
                 style={styles.closeButton}
-                activeOpacity={0.7}
               >
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
@@ -240,14 +214,14 @@ const CustomFieldsScreen = ({ navigation }) => {
                 style={styles.input}
                 placeholder="e.g., Amazon, Starbucks, Walmart"
                 placeholderTextColor="#9CA3AF"
-                value={newVendorName}
-                onChangeText={setNewVendorName}
+                value={vendorName}
+                onChangeText={setVendorName}
                 autoFocus
               />
               <View style={styles.helperContainer}>
                 <Ionicons name="information-circle" size={16} color="#6B7280" />
                 <Text style={styles.helperText}>
-                  This vendor will start with common fields. You can add custom
+                  This vendor will start with no fields. You can add custom
                   fields later.
                 </Text>
               </View>
@@ -256,18 +230,17 @@ const CustomFieldsScreen = ({ navigation }) => {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setVendorModalVisible(false)}
-                activeOpacity={0.7}
+                onPress={() => setModalVisible(false)}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={addNewVendor}
-                activeOpacity={0.8}
+                style={[styles.modalButton, styles.createModalButton]}
+                onPress={createVendor}
               >
-                <Ionicons name="add" size={20} color="red" />
-                <Text style={styles.saveButtonText}>Create Vendor</Text>
+                <Ionicons name="add" size={20} color="white" />
+                <Text style={styles.createModalButtonText}>Create Vendor</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -283,6 +256,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   header: {
+    padding: 24,
+    paddingTop: 60,
     backgroundColor: "white",
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -291,29 +266,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
-    overflow: "hidden",
-  },
-  headerBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: "#6366F1",
-    opacity: 0.02,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    padding: 24,
-    paddingTop: 60,
   },
   title: {
     fontSize: 32,
     fontWeight: "800",
     color: "#111827",
-    marginBottom: 4,
+    marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitle: {
@@ -321,46 +279,16 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontWeight: "500",
   },
-  bottomButtonContainer: {
-    position: "absolute",
-    bottom: 100,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: "transparent",
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-  },
-  bottomCreateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#6366F1",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-    shadowColor: "#6366F1",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  bottomCreateButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  statsOverview: {
+  stats: {
     flexDirection: "row",
     padding: 20,
     gap: 12,
     marginTop: 8,
   },
-  statCard: {
+  stat: {
     flex: 1,
     backgroundColor: "white",
-    padding: 16,
+    padding: 20,
     borderRadius: 16,
     alignItems: "center",
     shadowColor: "#000",
@@ -371,22 +299,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#F3F4F6",
   },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   statNumber: {
     fontSize: 24,
     fontWeight: "800",
     color: "#111827",
-    marginTop: 8,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: "#6B7280",
     fontWeight: "600",
-    marginTop: 4,
   },
-  vendorsContainer: {
+  listContainer: {
     flex: 1,
     padding: 20,
-    paddingBottom: 100,
   },
   sectionHeader: {
     marginBottom: 20,
@@ -401,17 +335,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6B7280",
   },
-  vendorsList: {
+  listContent: {
     gap: 16,
     paddingBottom: 100,
   },
-  emptyState: {
+  empty: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
   },
-  emptyIllustration: {
+  emptyIcon: {
     width: 120,
     height: 120,
     borderRadius: 60,
@@ -420,19 +354,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
-  emptyTitle: {
+  emptyText: {
     fontSize: 20,
     fontWeight: "700",
     color: "#111827",
     marginBottom: 8,
     textAlign: "center",
   },
-  emptyDescription: {
+  emptySubtext: {
     fontSize: 14,
     color: "#6B7280",
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 32,
+  },
+  bottomContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    backgroundColor: "white",
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    paddingBottom: 40,
+  },
+  createButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#6366F1",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  createButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,
@@ -535,7 +500,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: "#F3F4F6",
   },
-  saveButton: {
+  createModalButton: {
     backgroundColor: "#6366F1",
     shadowColor: "#6366F1",
     shadowOffset: { width: 0, height: 4 },
@@ -548,7 +513,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  saveButtonText: {
+  createModalButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
