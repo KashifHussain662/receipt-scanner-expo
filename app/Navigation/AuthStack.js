@@ -49,10 +49,10 @@ const AuthStack = () => {
       <Stack.Screen
         name="FieldsScreen"
         component={FieldsScreen}
-        // options={{
-        //   headerShown: false,
-        //   presentation: "modal",
-        // }}
+        options={{
+          headerShown: false,
+          presentation: "modal",
+        }}
       />
 
       <Stack.Screen

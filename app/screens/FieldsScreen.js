@@ -45,7 +45,7 @@ const FieldsScreen = ({ route, navigation }) => {
       key: fieldKey,
       label: fieldName.trim(),
       type: fieldType,
-      defaultValue: defaultValue.trim(), // Default value add kiya
+      defaultValue: defaultValue.trim(),
       enabled: true,
     };
 
@@ -65,6 +65,7 @@ const FieldsScreen = ({ route, navigation }) => {
 
     setFieldName("");
     setDefaultValue("");
+    setFieldType("text");
     setModalVisible(false);
     Alert.alert("Success", "Field created!");
   };
@@ -116,48 +117,102 @@ const FieldsScreen = ({ route, navigation }) => {
   const renderField = ({ item }) => (
     <View style={styles.fieldCard}>
       <View style={styles.fieldInfo}>
-        <Text style={styles.fieldName}>{item.label}</Text>
-        <Text style={styles.fieldKey}>{item.key}</Text>
-        <Text style={styles.fieldType}>Type: {item.type}</Text>
-        {item.defaultValue && (
-          <Text style={styles.defaultValue}>Default: {item.defaultValue}</Text>
-        )}
+        <View style={styles.fieldHeader}>
+          <Text style={styles.fieldName}>{item.label}</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: item.enabled ? "#10B981" : "#EF4444" },
+            ]}
+          >
+            <Text style={styles.statusText}>
+              {item.enabled ? "Active" : "Inactive"}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.fieldKey}>Key: {item.key}</Text>
+        <View style={styles.fieldMeta}>
+          <View style={styles.typeBadge}>
+            <Ionicons
+              name={getFieldTypeIcon(item.type)}
+              size={12}
+              color="#6366F1"
+            />
+            <Text style={styles.fieldType}>Type: {item.type}</Text>
+          </View>
+          {item.defaultValue && (
+            <View style={styles.defaultBadge}>
+              <Ionicons name="document-text" size={12} color="#8B5CF6" />
+              <Text style={styles.defaultValue}>
+                Default: {item.defaultValue}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.fieldActions}>
-        <TouchableOpacity onPress={() => toggleField(item.key)}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => toggleField(item.key)}
+        >
           <Ionicons
             name={item.enabled ? "eye" : "eye-off"}
             size={20}
-            color={item.enabled ? "green" : "red"}
+            color={item.enabled ? "#10B981" : "#6B7280"}
           />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => deleteField(item.key)}>
-          <Ionicons name="trash" size={20} color="red" />
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => deleteField(item.key)}
+        >
+          <Ionicons name="trash-outline" size={20} color="#EF4444" />
         </TouchableOpacity>
       </View>
     </View>
   );
 
+  const getFieldTypeIcon = (type) => {
+    const icons = {
+      text: "text",
+      number: "stats-chart",
+      date: "calendar",
+      amount: "cash",
+    };
+    return icons[type] || "text";
+  };
+
   return (
     <View style={styles.container}>
       {/* Vendor Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#374151" />
         </TouchableOpacity>
-        <Text style={styles.vendorName}>{vendor.name}</Text>
+        <View style={styles.vendorInfo}>
+          <Text style={styles.vendorName}>{vendor.name}</Text>
+          <Text style={styles.vendorSubtitle}>Custom Fields Management</Text>
+        </View>
         <View style={{ width: 24 }} />
       </View>
 
       {/* Stats */}
       <View style={styles.stats}>
         <View style={styles.stat}>
+          <View style={[styles.statIcon, { backgroundColor: "#EEF2FF" }]}>
+            <Ionicons name="list" size={20} color="#6366F1" />
+          </View>
           <Text style={styles.statNumber}>{fields.length}</Text>
           <Text style={styles.statLabel}>Total Fields</Text>
         </View>
         <View style={styles.stat}>
+          <View style={[styles.statIcon, { backgroundColor: "#F0FDF4" }]}>
+            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+          </View>
           <Text style={styles.statNumber}>
             {fields.filter((f) => f.enabled).length}
           </Text>
@@ -167,7 +222,12 @@ const FieldsScreen = ({ route, navigation }) => {
 
       {/* Fields List */}
       <View style={styles.listContainer}>
-        <Text style={styles.title}>Fields</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Custom Fields</Text>
+          <Text style={styles.sectionSubtitle}>
+            Manage fields for {vendor.name}
+          </Text>
+        </View>
 
         {fields.length > 0 ? (
           <FlatList
@@ -175,81 +235,130 @@ const FieldsScreen = ({ route, navigation }) => {
             renderItem={renderField}
             keyExtractor={(item) => item.key}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
           />
         ) : (
           <View style={styles.empty}>
-            <Ionicons name="list-outline" size={60} color="#ccc" />
-            <Text style={styles.emptyText}>No fields yet</Text>
-            <Text style={styles.emptySubtext}>Add your first field</Text>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="list-outline" size={60} color="#D1D5DB" />
+            </View>
+            <Text style={styles.emptyText}>No fields created yet</Text>
+            <Text style={styles.emptySubtext}>
+              Add your first custom field to start collecting data
+            </Text>
           </View>
         )}
       </View>
 
-      {/* Create Button */}
+      {/* Floating Action Button - WhatsApp style */}
       <TouchableOpacity
-        style={styles.createButton}
+        style={styles.fab}
         onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
       >
-        <Ionicons name="add" size={24} color="white" />
-        <Text style={styles.createButtonText}>Create Field</Text>
+        <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
 
       {/* Create Modal */}
       <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={styles.modal}>
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Create Field</Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Field name"
-              value={fieldName}
-              onChangeText={setFieldName}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="Default value (optional)"
-              value={defaultValue}
-              onChangeText={setDefaultValue}
-            />
-
-            <Text style={styles.label}>Field Type</Text>
-            <View style={styles.typeButtons}>
-              {["text", "number", "date", "amount"].map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.typeButton,
-                    fieldType === type && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setFieldType(type)}
-                >
-                  <Text
-                    style={[
-                      styles.typeText,
-                      fieldType === type && styles.typeTextActive,
-                    ]}
-                  >
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIcon}>
+                <Ionicons name="add-circle" size={24} color="#6366F1" />
+              </View>
+              <View style={styles.modalTitleContainer}>
+                <Text style={styles.modalTitle}>Create New Field</Text>
+                <Text style={styles.modalSubtitle}>
+                  Add a custom field to {vendor.name}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisible(false);
+                  setFieldName("");
+                  setDefaultValue("");
+                  setFieldType("text");
+                }}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.modalButtons}>
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Field Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Product Category, Invoice Number"
+                placeholderTextColor="#9CA3AF"
+                value={fieldName}
+                onChangeText={setFieldName}
+                autoFocus
+              />
+
+              <Text style={styles.inputLabel}>Default Value (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter default value"
+                placeholderTextColor="#9CA3AF"
+                value={defaultValue}
+                onChangeText={setDefaultValue}
+              />
+
+              <Text style={styles.inputLabel}>Field Type</Text>
+              <View style={styles.typeButtons}>
+                {[
+                  { type: "text", label: "Text", icon: "text" },
+                  { type: "number", label: "Number", icon: "stats-chart" },
+                  { type: "date", label: "Date", icon: "calendar" },
+                  { type: "amount", label: "Amount", icon: "cash" },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.type}
+                    style={[
+                      styles.typeButton,
+                      fieldType === item.type && styles.typeButtonActive,
+                    ]}
+                    onPress={() => setFieldType(item.type)}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={16}
+                      color={fieldType === item.type ? "white" : "#6366F1"}
+                    />
+                    <Text
+                      style={[
+                        styles.typeText,
+                        fieldType === item.type && styles.typeTextActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setModalVisible(false);
+                  setFieldName("");
+                  setDefaultValue("");
+                  setFieldType("text");
+                }}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.button, styles.createButton]}
+                style={[styles.modalButton, styles.createModalButton]}
                 onPress={createField}
               >
-                <Text style={styles.createText}>Create</Text>
+                <Ionicons name="add" size={20} color="white" />
+                <Text style={styles.createModalButtonText}>Create Field</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -262,189 +371,377 @@ const FieldsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    padding: 20,
+    backgroundColor: "#F9FAFB",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
+    padding: 20,
+    paddingTop: 60,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+  },
+  vendorInfo: {
+    flex: 1,
+    marginLeft: 12,
   },
   vendorName: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: "700",
+    color: "#111827",
+  },
+  vendorSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 2,
   },
   stats: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 20,
+    padding: 20,
+    gap: 12,
   },
   stat: {
-    alignItems: "center",
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 10,
     flex: 1,
-    marginHorizontal: 5,
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
   },
   statNumber: {
     fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 4,
   },
   statLabel: {
-    color: "#666",
-    marginTop: 5,
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "600",
   },
   listContainer: {
     flex: 1,
+    padding: 20,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
-    color: "#333",
+  sectionHeader: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  listContent: {
+    gap: 12,
+    paddingBottom: 100,
   },
   fieldCard: {
     backgroundColor: "white",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    padding: 16,
+    borderRadius: 12,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
   fieldInfo: {
     flex: 1,
   },
+  fieldHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
   fieldName: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: "600",
+    color: "#111827",
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "white",
   },
   fieldKey: {
-    color: "#666",
     fontSize: 12,
-    marginTop: 2,
+    color: "#6B7280",
+    marginBottom: 8,
+    fontFamily: "monospace",
+  },
+  fieldMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  typeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  defaultBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FAF5FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
   },
   fieldType: {
-    color: "#666",
-    marginTop: 5,
+    fontSize: 11,
+    color: "#6366F1",
+    fontWeight: "500",
   },
   defaultValue: {
-    color: "#888",
-    fontSize: 12,
-    marginTop: 2,
-    fontStyle: "italic",
+    fontSize: 11,
+    color: "#8B5CF6",
+    fontWeight: "500",
   },
   fieldActions: {
     flexDirection: "row",
-    gap: 15,
+    gap: 8,
+    marginLeft: 12,
+  },
+  actionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
   },
   empty: {
-    alignItems: "center",
-    justifyContent: "center",
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#F8FAFC",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
   },
   emptyText: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 10,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 8,
+    textAlign: "center",
   },
   emptySubtext: {
-    color: "#999",
-    marginTop: 5,
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 20,
   },
-  createButton: {
+  // Floating Action Button
+  fab: {
+    position: "absolute",
+    bottom: 80,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: "#6366F1",
-    flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
+    alignItems: "center",
+    shadowColor: "#6366F1",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 3,
+    borderColor: "white",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  createButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    marginLeft: 5,
-  },
-  modal: {
+  // Modal Styles
+  modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 20,
   },
   modalContent: {
     backgroundColor: "white",
-    padding: 20,
-    borderRadius: 10,
-    width: "80%",
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 12,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    gap: 12,
+  },
+  modalIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalTitleContainer: {
+    flex: 1,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center",
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 8,
+  },
+  modalBody: {
+    padding: 24,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+    color: "#374151",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  label: {
-    fontWeight: "bold",
-    marginBottom: 5,
-    color: "#333",
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    backgroundColor: "#F9FAFB",
+    color: "#111827",
+    marginBottom: 16,
   },
   typeButtons: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 15,
+    gap: 8,
+    marginTop: 8,
   },
   typeButton: {
-    padding: 8,
-    borderRadius: 5,
-    backgroundColor: "#f0f0f0",
-    margin: 2,
     flex: 1,
-    minWidth: "23%",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
   typeButtonActive: {
     backgroundColor: "#6366F1",
+    borderColor: "#6366F1",
   },
   typeText: {
-    color: "#666",
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6366F1",
   },
   typeTextActive: {
     color: "white",
   },
-  modalButtons: {
+  modalActions: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    padding: 24,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
   },
-  button: {
-    padding: 10,
-    borderRadius: 5,
+  modalButton: {
     flex: 1,
+    padding: 16,
+    borderRadius: 12,
     alignItems: "center",
-    marginHorizontal: 5,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
   },
   cancelButton: {
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#F3F4F6",
   },
-  cancelText: {
-    color: "#666",
+  createModalButton: {
+    backgroundColor: "#6366F1",
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  createText: {
+  cancelButtonText: {
+    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  createModalButtonText: {
     color: "white",
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -12,14 +13,26 @@ import {
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { firebaseService } from "../../services/firebaseService";
-import { addVendor, deleteVendor } from "../../store/vendorsSlice";
+import { addVendor, deleteVendor, loadVendors } from "../../store/vendorsSlice";
 import VendorCard from "../components/VendorCard";
 
 const CustomFieldsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { vendors } = useSelector((state) => state.vendors);
+  const { vendors, loading, error } = useSelector((state) => state.vendors);
   const [modalVisible, setModalVisible] = useState(false);
   const [vendorName, setVendorName] = useState("");
+
+  // Load vendors on component mount
+  useEffect(() => {
+    dispatch(loadVendors());
+  }, [dispatch]);
+
+  // Show error if any
+  useEffect(() => {
+    if (error) {
+      Alert.alert("Error", error);
+    }
+  }, [error]);
 
   const createVendor = async () => {
     if (!vendorName.trim()) {
@@ -44,15 +57,24 @@ const CustomFieldsScreen = ({ navigation }) => {
       createdAt: new Date().toISOString(),
     };
 
-    // Redux mein add karein
-    dispatch(addVendor(newVendor));
+    try {
+      // Redux mein add karein
+      dispatch(addVendor(newVendor));
 
-    // Firebase mein save karein
-    await firebaseService.saveVendor(newVendor);
+      // Firebase mein save karein
+      const success = await firebaseService.saveVendor(newVendor);
 
-    setVendorName("");
-    setModalVisible(false);
-    Alert.alert("Success", "Vendor created!");
+      if (success) {
+        setVendorName("");
+        setModalVisible(false);
+        Alert.alert("Success", "Vendor created!");
+      } else {
+        Alert.alert("Error", "Failed to save vendor to cloud");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to create vendor");
+      console.error("Create vendor error:", error);
+    }
   };
 
   const removeVendor = async (vendorId) => {
@@ -69,9 +91,22 @@ const CustomFieldsScreen = ({ navigation }) => {
         {
           text: "Delete",
           onPress: async () => {
-            dispatch(deleteVendor(vendorId));
-            await firebaseService.deleteVendor(vendorId);
-            Alert.alert("Success", "Vendor deleted!");
+            try {
+              dispatch(deleteVendor(vendorId));
+              const success = await firebaseService.deleteVendor(vendorId);
+
+              if (success) {
+                Alert.alert("Success", "Vendor deleted!");
+              } else {
+                Alert.alert("Error", "Failed to delete vendor from cloud");
+                // Reload vendors to sync state
+                dispatch(loadVendors());
+              }
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete vendor");
+              // Reload vendors to sync state
+              dispatch(loadVendors());
+            }
           },
         },
       ]
@@ -108,16 +143,22 @@ const CustomFieldsScreen = ({ navigation }) => {
     ),
   };
 
+  // Refresh vendors
+  const handleRefresh = () => {
+    dispatch(loadVendors());
+  };
+
+  if (loading && vendors.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6366F1" />
+        <Text style={styles.loadingText}>Loading vendors...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Vendor Management</Text>
-        <Text style={styles.subtitle}>
-          Manage vendors and their custom fields
-        </Text>
-      </View>
-
       {/* Stats */}
       <View style={styles.stats}>
         <View style={styles.stat}>
@@ -161,6 +202,8 @@ const CustomFieldsScreen = ({ navigation }) => {
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
+            refreshing={loading}
+            onRefresh={handleRefresh}
           />
         ) : (
           <View style={styles.empty}>
@@ -171,20 +214,24 @@ const CustomFieldsScreen = ({ navigation }) => {
             <Text style={styles.emptySubtext}>
               Create your first vendor to start managing custom fields
             </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={styles.emptyButtonText}>Create First Vendor</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Create Button */}
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color="white" />
-          <Text style={styles.createButtonText}>Create New Vendor</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Floating Action Button - WhatsApp style */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="white" />
+      </TouchableOpacity>
 
       {/* Create Modal */}
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -255,30 +302,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F9FAFB",
   },
-  header: {
-    padding: 24,
-    paddingTop: 60,
-    backgroundColor: "white",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
+  loadingText: {
+    marginTop: 16,
     fontSize: 16,
     color: "#6B7280",
-    fontWeight: "500",
   },
+
   stats: {
     flexDirection: "row",
     padding: 20,
@@ -368,37 +403,50 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 32,
   },
-  bottomContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    backgroundColor: "white",
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    paddingBottom: 40,
-  },
-  createButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  emptyButton: {
     backgroundColor: "#6366F1",
     paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Floating Action Button Styles (WhatsApp style)
+  fab: {
+    position: "absolute",
+    bottom: 104,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#6366F1",
+    justifyContent: "center",
+    alignItems: "center",
     shadowColor: "#6366F1",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 3,
+    borderColor: "white",
+    // Subtle gradient effect
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
   },
-  createButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "700",
-  },
+
   modalOverlay: {
     flex: 1,
     justifyContent: "center",

@@ -8,6 +8,7 @@ import { store } from "./store";
 // Firebase imports
 import { get, ref, set } from "firebase/database";
 import { database } from "./firebaseConfig";
+import { firebaseService } from "./services/firebaseService";
 
 
 
@@ -33,17 +34,17 @@ export default function App() {
      testFirebaseConnection();
    }, []);
 
-  //    useEffect(() => {
-  //   // App start hote hi Firebase se vendors fetch karein
-  //   const loadVendorsFromFirebase = async () => {
-  //     const vendors = await firebaseService.fetchVendorsFromFirebase();
-  //     if (vendors.length > 0) {
-  //       store.dispatch(setVendors(vendors));
-  //     }
-  //   };
+     useEffect(() => {
+    // App start hote hi Firebase se vendors fetch karein
+    const loadVendorsFromFirebase = async () => {
+      const vendors = await firebaseService.fetchVendorsFromFirebase();
+      if (vendors.length > 0) {
+        store.dispatch(setVendors(vendors));
+      }
+    };
     
-  //   loadVendorsFromFirebase();
-  // }, []);
+    loadVendorsFromFirebase();
+  }, []);
 
 
   return (
