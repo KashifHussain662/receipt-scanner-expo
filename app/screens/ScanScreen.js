@@ -19,6 +19,7 @@ export default function ScanScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedReceipt, setScannedReceipt] = useState(null);
   const [extractedVendor, setExtractedVendor] = useState("");
+  const [vendorMatch, setVendorMatch] = useState(null);
 
   const pickImage = async () => {
     try {
@@ -47,6 +48,7 @@ export default function ScanScreen() {
   const processImage = async (imageUri) => {
     setIsProcessing(true);
     setExtractedVendor("");
+    setVendorMatch(null);
 
     try {
       console.log("Processing image for vendor extraction...");
@@ -55,19 +57,29 @@ export default function ScanScreen() {
       try {
         receiptData = await extractReceiptData(imageUri);
         setExtractedVendor(receiptData.vendor_name);
+        setVendorMatch(receiptData.matched_vendor);
       } catch (apiError) {
         console.log("API failed, using mock data:", apiError);
         receiptData = mockReceiptData();
         setExtractedVendor(receiptData.vendor_name);
+        setVendorMatch(null);
       }
 
       const savedReceipt = await saveReceipt(receiptData);
       setScannedReceipt(savedReceipt);
 
-      Alert.alert(
-        "Vendor Detected!",
-        `Vendor: ${receiptData.vendor_name}\n\nReceipt scanned successfully!`
-      );
+      // Show appropriate alert based on vendor match
+      if (receiptData.matched_vendor) {
+        Alert.alert(
+          "✅ Vendor Matched!",
+          `Vendor: ${receiptData.vendor_name}\n\nCategory: ${receiptData.matched_vendor.category}\nLocation: ${receiptData.matched_vendor.location}`
+        );
+      } else {
+        Alert.alert(
+          "📋 Vendor Detected",
+          `Vendor: ${receiptData.vendor_name}\n\nNo exact match found in database. Using default category.`
+        );
+      }
     } catch (error) {
       Alert.alert("Error", "Failed to process receipt. Please try again.");
       console.error("Processing error:", error);
@@ -83,6 +95,7 @@ export default function ScanScreen() {
   const handleDeleteReceipt = async (id) => {
     setScannedReceipt(null);
     setExtractedVendor("");
+    setVendorMatch(null);
   };
 
   return (
@@ -90,7 +103,7 @@ export default function ScanScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Scan Receipt</Text>
         <Text style={styles.subtitle}>
-          Capture or upload a receipt to extract vendor and expense details
+          Capture receipt to extract vendor and match with database
         </Text>
       </View>
 
@@ -100,10 +113,11 @@ export default function ScanScreen() {
           <Text style={styles.processingText}>
             Extracting vendor details...
           </Text>
-          {extractedVendor ? (
-            <Text style={styles.vendorFound}>Vendor: {extractedVendor}</Text>
-          ) : (
-            <Text style={styles.demoNote}>Analyzing receipt image</Text>
+          {extractedVendor && (
+            <View style={styles.vendorInfo}>
+              <Text style={styles.vendorFound}>Vendor: {extractedVendor}</Text>
+              <Text style={styles.matchingText}>Matching with database...</Text>
+            </View>
           )}
         </View>
       )}
@@ -127,9 +141,26 @@ export default function ScanScreen() {
       {scannedReceipt && !isProcessing && (
         <View style={styles.resultContainer}>
           <Text style={styles.resultTitle}>Scanned Receipt</Text>
-          <Text style={styles.vendorHighlight}>
-            Vendor: {scannedReceipt.vendor_name}
-          </Text>
+
+          {/* Vendor Match Status */}
+          {/* <View
+            style={[
+              styles.matchStatus,
+              vendorMatch ? styles.matchSuccess : styles.matchNotFound,
+            ]}
+          >
+            <Text style={styles.matchStatusText}>
+              {vendorMatch ? "✅ Database Match Found" : "ℹ️ New Vendor"}
+            </Text>
+            <Text style={styles.vendorName}>{scannedReceipt.vendor_name}</Text>
+            {vendorMatch && (
+              <Text style={styles.matchDetails}>
+                Category: {vendorMatch.category} | Location:{" "}
+                {vendorMatch.location}
+              </Text>
+            )}
+          </View> */}
+
           <ReceiptCard
             receipt={scannedReceipt}
             onDelete={handleDeleteReceipt}
@@ -138,17 +169,15 @@ export default function ScanScreen() {
       )}
 
       <View style={styles.tipsContainer}>
-        <Text style={styles.tipsTitle}>Vendor Detection:</Text>
+        <Text style={styles.tipsTitle}>Vendor Matching:</Text>
         <Text style={styles.tip}>
-          • Automatically extracts vendor name from receipts
+          • Automatically matches with Firebase database
         </Text>
+        <Text style={styles.tip}>• Uses exact and partial name matching</Text>
         <Text style={styles.tip}>
-          • Works with restaurant bills, store receipts
+          • Updates category and location from database
         </Text>
-        <Text style={styles.tip}>
-          • Vendor name shown immediately after scan
-        </Text>
-        <Text style={styles.tip}>• Uses AI-powered OCR technology</Text>
+        <Text style={styles.tip}>• Shows match status immediately</Text>
       </View>
     </ScrollView>
   );
@@ -187,16 +216,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
   },
+  vendorInfo: {
+    alignItems: "center",
+    marginTop: 12,
+  },
   vendorFound: {
-    marginTop: 8,
     fontSize: 16,
     color: "#007AFF",
     fontWeight: "bold",
   },
-  demoNote: {
-    marginTop: 8,
+  matchingText: {
+    marginTop: 4,
     fontSize: 14,
-    color: "#999",
+    color: "#666",
     fontStyle: "italic",
   },
   actionsContainer: {
@@ -233,16 +265,39 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: 12,
     color: "#333",
     paddingLeft: 16,
   },
-  vendorHighlight: {
+  matchStatus: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    marginHorizontal: 16,
+  },
+  matchSuccess: {
+    backgroundColor: "#E8F5E8",
+    borderLeftWidth: 4,
+    borderLeftColor: "#4CAF50",
+  },
+  matchNotFound: {
+    backgroundColor: "#FFF3E0",
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF9800",
+  },
+  matchStatusText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  vendorName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#007AFF",
-    marginBottom: 12,
-    paddingLeft: 16,
+    marginBottom: 4,
+  },
+  matchDetails: {
+    fontSize: 12,
+    color: "#666",
   },
   tipsContainer: {
     backgroundColor: "white",
