@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   StyleSheet,
   Text,
@@ -9,99 +8,46 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { saveReceiptToFirebase, updateReceipt } from "../../utils/storage";
+import { updateReceipt } from "../../utils/storage";
 
-export default function ReceiptCard({ receipt, onDelete, onSave }) {
+export default function ReceiptCard({ receipt, onDelete }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [editedReceipt, setEditedReceipt] = useState(receipt);
-  const [isSaved, setIsSaved] = useState(receipt.status === "saved");
+  const [editedReceipt, setEditedReceipt] = useState({ ...receipt });
 
-  // Format date
-  const formatDate = (dateString) => {
-    try {
-      if (!dateString) return "No date";
-      return new Date(dateString).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch (error) {
-      return "Invalid date";
-    }
-  };
-
-  // Format amount
+  // Format amount - WITHOUT CURRENCY SYMBOL
   const formatAmount = (amount) => {
     try {
-      if (!amount && amount !== 0) return "₹0.00";
-      return `₹${parseFloat(amount).toFixed(2)}`;
+      if (!amount && amount !== 0) return "0.00";
+      return parseFloat(amount).toFixed(2);
     } catch (error) {
-      return "₹0.00";
-    }
-  };
-
-  // Handle save to Firebase
-  const handleSaveToFirebase = async () => {
-    try {
-      setIsSaving(true);
-      console.log("Firebase mein save kar raha hoon...");
-
-      await saveReceiptToFirebase(editedReceipt);
-      setIsSaved(true);
-
-      Alert.alert(
-        "✅ Success!",
-        "Receipt data successfully saved to database!",
-        [{ text: "OK" }]
-      );
-
-      if (onSave) {
-        onSave(editedReceipt);
-      }
-    } catch (error) {
-      Alert.alert(
-        "❌ Error",
-        "Failed to save receipt to database. Please try again.",
-        [{ text: "OK" }]
-      );
-      console.error("Save error:", error);
-    } finally {
-      setIsSaving(false);
+      return "0.00";
     }
   };
 
   // Handle edit
   const handleEdit = () => {
     setIsEditing(true);
-    setEditedReceipt(receipt);
+    setEditedReceipt({ ...receipt });
   };
 
   // Handle cancel edit
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setEditedReceipt(receipt);
+    setEditedReceipt({ ...receipt });
   };
 
   // Handle save edit
   const handleSaveEdit = async () => {
     try {
-      setIsSaving(true);
       await updateReceipt(receipt.id, editedReceipt);
       setIsEditing(false);
 
       Alert.alert("✅ Updated!", "Receipt data successfully updated!", [
         { text: "OK" },
       ]);
-
-      if (onSave) {
-        onSave(editedReceipt);
-      }
     } catch (error) {
       Alert.alert("Error", "Failed to update receipt");
       console.error("Update error:", error);
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -110,7 +56,6 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
     setEditedReceipt((prev) => ({
       ...prev,
       [fieldKey]: value,
-      // Custom fields mein bhi update karo
       custom_fields: {
         ...prev.custom_fields,
         [fieldKey]: value,
@@ -128,7 +73,7 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
       case "number":
         return String(value);
       case "date":
-        return formatDate(value);
+        return new Date(value).toLocaleDateString("en-IN");
       default:
         return String(value);
     }
@@ -153,7 +98,11 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
   // Custom fields display karo - EDITABLE
   const renderCustomFields = () => {
     if (!receipt.matched_vendor || !receipt.matched_vendor.fields) {
-      return null;
+      return (
+        <View style={styles.noFieldsContainer}>
+          <Text style={styles.noFieldsText}>No custom fields found</Text>
+        </View>
+      );
     }
 
     const customFields = receipt.matched_vendor.fields.filter(
@@ -161,12 +110,16 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
     );
 
     if (customFields.length === 0) {
-      return null;
+      return (
+        <View style={styles.noFieldsContainer}>
+          <Text style={styles.noFieldsText}>No custom fields enabled</Text>
+        </View>
+      );
     }
 
     return (
       <View style={styles.customFieldsSection}>
-        <Text style={styles.customFieldsTitle}>📊 Extracted Data:</Text>
+        <Text style={styles.customFieldsTitle}>📊 Extracted Data</Text>
         {customFields.map((field) => {
           const fieldValue = isEditing
             ? editedReceipt[field.key]
@@ -174,13 +127,14 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
 
           return (
             <View key={field.key} style={styles.customFieldRow}>
-              <Text style={styles.customFieldLabel}>{field.label}:</Text>
+              <Text style={styles.customFieldLabel}>{field.label}</Text>
 
               {isEditing ? (
                 <TextInput
                   style={[
                     styles.editInput,
-                    field.type === "amount" && styles.amountInput,
+                    (field.type === "amount" || field.type === "number") &&
+                      styles.amountInput,
                   ]}
                   value={String(fieldValue || "")}
                   onChangeText={(text) => handleFieldChange(field.key, text)}
@@ -195,7 +149,8 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
                 <Text
                   style={[
                     styles.customFieldValue,
-                    field.type === "amount" && styles.amountValue,
+                    (field.type === "amount" || field.type === "number") &&
+                      styles.amountValue,
                   ]}
                 >
                   {formatFieldValue(field, fieldValue)}
@@ -221,17 +176,13 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
 
     return (
       <View style={[styles.matchStatus, styles.matchSuccess]}>
-        <Text style={styles.matchStatusText}>✅ Database Match Found</Text>
+        <Text style={styles.matchStatusText}>✅ Vendor Matched</Text>
         <Text style={styles.vendorName}>{receipt.vendor_name}</Text>
-        <Text style={styles.matchDetails}>
-          Category: {receipt.category} | Fields:{" "}
-          {receipt.matched_vendor.fields?.length || 0}
-        </Text>
       </View>
     );
   };
 
-  // Save button aur actions
+  // Actions
   const renderActions = () => {
     if (isEditing) {
       return (
@@ -239,7 +190,6 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
           <TouchableOpacity
             style={[styles.actionButton, styles.cancelButton]}
             onPress={handleCancelEdit}
-            disabled={isSaving}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -247,13 +197,8 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
           <TouchableOpacity
             style={[styles.actionButton, styles.saveEditButton]}
             onPress={handleSaveEdit}
-            disabled={isSaving}
           >
-            {isSaving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.saveEditButtonText}>Save Changes</Text>
-            )}
+            <Text style={styles.saveEditButtonText}>Save</Text>
           </TouchableOpacity>
         </View>
       );
@@ -261,34 +206,9 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
 
     return (
       <View style={styles.actions}>
-        {!isSaved && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.saveButton]}
-            onPress={handleSaveToFirebase}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="cloud-upload" size={16} color="#fff" />
-                <Text style={styles.saveButtonText}>Save to Database</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {isSaved && (
-          <View style={styles.savedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-            <Text style={styles.savedText}>Saved to Database</Text>
-          </View>
-        )}
-
         <TouchableOpacity
           style={[styles.actionButton, styles.editButton]}
           onPress={handleEdit}
-          disabled={isSaving}
         >
           <Ionicons name="create-outline" size={16} color="#007AFF" />
           <Text style={styles.editButtonText}>Edit</Text>
@@ -310,50 +230,10 @@ export default function ReceiptCard({ receipt, onDelete, onSave }) {
       {/* Vendor Match Status */}
       {renderVendorMatchStatus()}
 
-      {/* Basic Receipt Details */}
-      <View style={styles.details}>
-        <View style={styles.detailRow}>
-          <Text style={styles.label}>Total Amount:</Text>
-          {isEditing ? (
-            <TextInput
-              style={[styles.editInput, styles.amountInput]}
-              value={String(editedReceipt.total_amount || "")}
-              onChangeText={(text) => handleFieldChange("total_amount", text)}
-              keyboardType="numeric"
-              placeholder="Enter total amount"
-            />
-          ) : (
-            <Text style={styles.amount}>
-              {formatAmount(receipt.total_amount)}
-            </Text>
-          )}
-        </View>
+      {/* 🔥 SIRF EXTRACTED DATA - BAAKI SAB HATA DIYA */}
+      {renderCustomFields()}
 
-        <View style={styles.detailRow}>
-          <Text style={styles.label}>Tax:</Text>
-          {isEditing ? (
-            <TextInput
-              style={[styles.editInput, styles.amountInput]}
-              value={String(editedReceipt.tax || "")}
-              onChangeText={(text) => handleFieldChange("tax", text)}
-              keyboardType="numeric"
-              placeholder="Enter tax amount"
-            />
-          ) : (
-            <Text style={styles.value}>{formatAmount(receipt.tax)}</Text>
-          )}
-        </View>
-
-        <View style={styles.detailRow}>
-          <Text style={styles.label}>Date:</Text>
-          <Text style={styles.value}>{formatDate(receipt.date)}</Text>
-        </View>
-
-        {/* 🔥 DYNAMIC CUSTOM FIELDS - EDITABLE */}
-        {renderCustomFields()}
-      </View>
-
-      {/* 🔥 SAVE BUTTON & ACTIONS */}
+      {/* 🔥 ACTIONS */}
       {renderActions()}
     </View>
   );
@@ -372,7 +252,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  // Match Status Styles
   matchStatus: {
     padding: 12,
     borderRadius: 8,
@@ -396,37 +275,53 @@ const styles = StyleSheet.create({
   vendorName: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 4,
   },
-  matchDetails: {
-    fontSize: 12,
-    color: "#666",
+  // Custom Fields Styles
+  customFieldsSection: {
+    marginBottom: 16,
   },
-  // Details Styles
-  details: {
-    gap: 12,
+  customFieldsTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 12,
+    textAlign: "center",
   },
-  detailRow: {
+  customFieldRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    minHeight: 40,
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
   },
-  label: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
-    flex: 1,
-  },
-  value: {
+  customFieldLabel: {
     fontSize: 14,
     color: "#333",
     fontWeight: "500",
+    flex: 1,
   },
-  amount: {
-    fontSize: 16,
+  customFieldValue: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  amountValue: {
     fontWeight: "bold",
     color: "#007AFF",
+  },
+  // No Fields Style
+  noFieldsContainer: {
+    padding: 20,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  noFieldsText: {
+    fontSize: 14,
+    color: "#999",
+    fontStyle: "italic",
   },
   // Edit Input Styles
   editInput: {
@@ -437,44 +332,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minWidth: 100,
     textAlign: "right",
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "white",
   },
   amountInput: {
-    fontWeight: "bold",
-    color: "#007AFF",
-  },
-  // Custom Fields Styles
-  customFieldsSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
-  },
-  customFieldsTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 8,
-  },
-  customFieldRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-    minHeight: 35,
-  },
-  customFieldLabel: {
-    fontSize: 13,
-    color: "#666",
-    fontWeight: "500",
-    flex: 1,
-  },
-  customFieldValue: {
-    fontSize: 13,
-    color: "#333",
-    fontWeight: "500",
-  },
-  amountValue: {
     fontWeight: "bold",
     color: "#007AFF",
   },
@@ -483,41 +343,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
     gap: 8,
-    flexWrap: "wrap",
   },
   editActions: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
     gap: 8,
   },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    gap: 4,
-    minHeight: 36,
-  },
-  saveButton: {
-    backgroundColor: "#4CAF50",
-    flex: 1,
-    justifyContent: "center",
-  },
-  saveButtonText: {
-    fontSize: 12,
-    color: "#fff",
-    fontWeight: "600",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+    minHeight: 40,
   },
   saveEditButton: {
     backgroundColor: "#4CAF50",
@@ -525,7 +366,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveEditButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#fff",
     fontWeight: "600",
   },
@@ -537,7 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#666",
     fontWeight: "500",
   },
@@ -545,7 +386,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E3F2FD",
   },
   editButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#007AFF",
     fontWeight: "500",
   },
@@ -553,23 +394,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFE5E5",
   },
   deleteButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#FF3B30",
     fontWeight: "500",
-  },
-  savedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E8F5E8",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    gap: 4,
-    flex: 1,
-  },
-  savedText: {
-    fontSize: 12,
-    color: "#4CAF50",
-    fontWeight: "600",
   },
 });

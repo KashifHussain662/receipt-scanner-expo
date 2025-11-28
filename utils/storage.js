@@ -1,8 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { push, ref, set, update } from "firebase/database";
+import { ref, set, update } from "firebase/database";
 import { database } from "../firebaseConfig";
 
-// Receipt ko custom fields ke saath save karo
 export const saveReceipt = async (receiptData) => {
   try {
     const receiptId = Date.now().toString();
@@ -10,10 +9,9 @@ export const saveReceipt = async (receiptData) => {
       id: receiptId,
       ...receiptData,
       createdAt: new Date().toISOString(),
-      status: "draft", // draft, saved
+      status: "draft",
     };
 
-    // AsyncStorage mein save karo
     const existingReceipts = await AsyncStorage.getItem("receipts");
     const receipts = existingReceipts ? JSON.parse(existingReceipts) : [];
     receipts.unshift(receipt);
@@ -24,48 +22,6 @@ export const saveReceipt = async (receiptData) => {
   } catch (error) {
     console.error("Receipt save karne mein error:", error);
     throw error;
-  }
-};
-
-// Receipt ko Firebase mein final save karo
-export const saveReceiptToFirebase = async (receiptData) => {
-  try {
-    console.log("Firebase mein receipt save kar raha hoon...");
-
-    const receiptWithTimestamp = {
-      ...receiptData,
-      savedAt: new Date().toISOString(),
-      status: "saved",
-    };
-
-    // Firebase mein save karo
-    const receiptsRef = ref(database, "receipts");
-    const newReceiptRef = push(receiptsRef);
-    await set(newReceiptRef, {
-      ...receiptWithTimestamp,
-      // Vendor reference bhi save karo
-      vendor_id: receiptData.matched_vendor?.id || null,
-      vendor_name: receiptData.vendor_name,
-      firebase_id: newReceiptRef.key,
-    });
-
-    // Local storage mein status update karo
-    const existingReceipts = await AsyncStorage.getItem("receipts");
-    const receipts = existingReceipts ? JSON.parse(existingReceipts) : [];
-
-    const updatedReceipts = receipts.map((receipt) =>
-      receipt.id === receiptData.id
-        ? { ...receipt, status: "saved", firebase_id: newReceiptRef.key }
-        : receipt
-    );
-
-    await AsyncStorage.setItem("receipts", JSON.stringify(updatedReceipts));
-
-    console.log("Receipt Firebase mein successfully save ho gaya");
-    return { ...receiptWithTimestamp, firebase_id: newReceiptRef.key };
-  } catch (firebaseError) {
-    console.error("Firebase save error:", firebaseError);
-    throw firebaseError;
   }
 };
 
