@@ -219,7 +219,7 @@ export default function ScanScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* HEADER */}
+          {/* HEADER 
           <View style={styles.header}>
             <View style={styles.headerBackground} />
             <View style={styles.headerContent}>
@@ -232,6 +232,7 @@ export default function ScanScreen() {
               </Text>
             </View>
           </View>
+          */}
 
           {/* MAIN CONTENT */}
           <View style={styles.content}>
@@ -424,7 +425,7 @@ export default function ScanScreen() {
                   />
                 </View>
 
-                {/* ACTION BUTTONS */}
+                {/* ACTION BUTTONS 
                 <View style={styles.resultActions}>
                   <TouchableOpacity style={styles.saveButton}>
                     <Ionicons name="save" size={20} color="white" />
@@ -444,6 +445,7 @@ export default function ScanScreen() {
                     <Text style={styles.scanAgainText}>Scan New</Text>
                   </TouchableOpacity>
                 </View>
+                */}
 
                 {/* SUCCESS MESSAGE */}
                 <View style={styles.successMessage}>
@@ -1007,6 +1009,6 @@ const styles = StyleSheet.create({
     color: "white",
   },
   bottomSpacer: {
-    height: 40,
+    height: 100,
   },
 });
